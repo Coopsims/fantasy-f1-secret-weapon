@@ -35,12 +35,16 @@ import requests
 from f1_ml_predictor import (
     predict_driver_scores,
     predict_constructor_scores,
+    predict_driver_std,
+    get_weekend_forecast,
+    fetch_known_results,
+    register_known_results,
     get_race_info,
     get_actual_round_points,
     get_all_completed_points,
     RACE_CALENDAR_2026,
 )
-from f1_trainer import GRID_2026
+from f1_calendar import GRID_2026
 
 # ──────────────────────────────────────────────────────────────
 # Starting 2026 Driver & Constructor Prices (pre-season defaults)
@@ -693,9 +697,15 @@ def pick_best_boost(drivers, driver_scores, driver_std=None):
 
 def get_driver_std_estimates(round_num):
     """
-    Get std (volatility) estimates for drivers from the model's training data.
-    Falls back to a simple heuristic if not available.
+    Volatility (std of the weekend total) per driver.  Comes from the weekend
+    simulation, which knows about DNF risk, grid sensitivity and sprint weekends;
+    falls back to the spread of recent results if the simulator is unavailable.
     """
+    try:
+        return predict_driver_std(round_num)
+    except Exception as exc:
+        print(f"  ℹ Simulator volatility unavailable ({exc.__class__.__name__}); using recent-result spread.")
+
     from f1_ml_predictor import load_driver_model, build_combined_data
     artifacts = load_driver_model()
     if not artifacts:
@@ -713,6 +723,46 @@ def get_driver_std_estimates(round_num):
         else:
             std_map[driver] = 8.0  # default moderate volatility
     return std_map
+
+
+def display_weekend_forecast(round_num, driver_name=None, top_n=None):
+    """Print the full per-event forecast (qualifying / sprint / race) for a round."""
+    from f1_weekend_model import format_forecast
+    fc = get_weekend_forecast(round_num)
+    print("\n" + format_forecast(fc, top_n=top_n))
+    if driver_name:
+        try:
+            print(f"\n  Component breakdown - {driver_name}:")
+            for event, comps in fc.breakdown(driver_name).items():
+                items = "  ".join(f"{k}={v:+.1f}" for k, v in comps.items())
+                print(f"    {event:7s} {items}")
+        except KeyError:
+            print(f"  (unknown driver/constructor '{driver_name}')")
+    m = fc.meta
+    print(f"\n  Model: qualifying noise scale {m['q_cal'][0]:.2f} / race {m['r_cal'][0]:.2f}, "
+          f"team-mate correlation {m['q_cal'][1]:.2f}/{m['r_cal'][1]:.2f}; "
+          f"calibrated on {m['calibration_weekends'][1]} past weekends.")
+
+
+def display_team_risk(drivers, constructors, boost, round_num):
+    """Distribution of the user's team score plus chip / boost values from the simulation."""
+    try:
+        fc = get_weekend_forecast(round_num)
+        ch = fc.chip_analysis(drivers, constructors, boost)
+    except Exception as exc:
+        print(f"  ℹ Team-risk analysis unavailable ({exc.__class__.__name__}).")
+        return
+    lo, hi = ch["team_p10_p90"]
+    print("\n" + "=" * 70)
+    print("  🎲 YOUR CURRENT TEAM - SIMULATED OUTCOME RANGE")
+    print("=" * 70)
+    print(f"    Expected {ch['team_mean']:.1f} pts  (±{ch['team_sd']:.1f}),  80% range {lo:.0f} to {hi:.0f}")
+    print("    Boost options (extra points from doubling the driver):")
+    for d, v in sorted(ch["boost"].items(), key=lambda kv: -kv[1]["x2_extra"]):
+        mark = "  ← current" if d == boost else ""
+        print(f"      {d:15s} +{v['x2_extra']:5.1f} expected (3x: +{v['x3_extra']:5.1f}), "
+              f"±{v['sd']:.0f}, {v['p_negative']:.0%} chance of a negative score{mark}")
+    print(f"    No Negative chip would add ≈ {ch['no_negative_gain']:.1f} pts to this team this weekend")
 
 
 def display_value_analysis(driver_scores, constructor_scores, round_num,
@@ -1368,6 +1418,16 @@ def display_recommendations(results, current_drivers, current_constructors, roun
 # Main
 # ──────────────────────────────────────────────────────────────
 
+def _use_live_results(round_num):
+    """If qualifying (or sprint qualifying) is already done, condition forecasts on the real grid."""
+    known = fetch_known_results(round_num)
+    register_known_results(round_num, known)
+    if known:
+        parts = ", ".join({"quali": "qualifying", "sprint_quali": "sprint qualifying"}[k] for k in known)
+        print(f"  ✅ Using actual {parts} results - race forecast is conditioned on the real grid.")
+    return known
+
+
 def main():
     print("\n" + "=" * 60)
     print("  🏆 F1 FANTASY 2026 TEAM OPTIMIZER")
@@ -1380,8 +1440,16 @@ def main():
     print("    3. View season history")
     print("    4. Update prices (scrape from f1fantasytools.com or manual)")
     print("    5. View price history")
+    print("    6. Weekend forecast - every event (quali / sprint / race) with uncertainty")
 
     choice = input("\n  → ").strip()
+
+    if choice == "6":
+        round_num = input_race()
+        _use_live_results(round_num)
+        name = input("  Driver or constructor for a points breakdown (blank to skip): ").strip() or None
+        display_weekend_forecast(round_num, driver_name=name)
+        return
 
     if choice == "2":
         record_actual_results()
@@ -1414,6 +1482,7 @@ def main():
 
     race = get_race_info(round_num)
     print(f"\n  🔮 Generating predictions for {race['name']}...")
+    _use_live_results(round_num)
 
     driver_scores = predict_driver_scores(round_num)
     constructor_scores = predict_constructor_scores(round_num)
@@ -1497,6 +1566,7 @@ def main():
     display_recommendations(results, drivers, constructors, round_num,
                             driver_price_changes=d_pc,
                             constructor_price_changes=c_pc)
+    display_team_risk(drivers, constructors, boost, round_num)
 
 
 if __name__ == "__main__":

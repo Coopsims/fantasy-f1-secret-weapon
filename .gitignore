@@ -1,0 +1,7 @@
+__pycache__/
+.pytest_cache/
+venv/
+.venv/
+*.pkl
+raw_historical_data.json
+raw_2026_results.json

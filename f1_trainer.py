@@ -29,85 +29,21 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from openf1_utils import openf1_client
 
 # ──────────────────────────────────────────────────────────────
-# Fantasy F1 2026 Scoring Rules
+# Scoring rules and the 2026 grid live in light-weight shared modules so the
+# weekend simulator can use them without sklearn / xgboost / network access.
+# They are re-exported here so existing imports keep working.
 # ──────────────────────────────────────────────────────────────
 
-# Qualifying points (driver)
-QUALI_PTS = {1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1}
-
-# Race finish points (driver)
-RACE_PTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
-
-# Sprint finish points (driver)
-SPRINT_PTS = {1: 8, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1}
-
-# Penalties and bonuses (driver)
-DNF_PENALTY_RACE = -20
-DNF_PENALTY_SPRINT = -10
-DSQ_PENALTY = -20
-QUALI_NC_PENALTY = -5
-OVERTAKE_BONUS = 1          # per position overtaken in race
-POSITION_GAINED = 1         # per grid position gained (quali -> race)
-POSITION_LOST = -1          # per grid position lost (quali -> race)
-FASTEST_LAP_RACE = 10
-FASTEST_LAP_SPRINT = 5
-DRIVER_OF_THE_DAY = 10      # not reliably in OpenF1, skip for training
-
-# Constructor scoring
-# Constructors score the combined total of both drivers' points
-# (qualifying, race, sprint — but NOT Driver of the Day).
-# Additional constructor-specific bonuses:
-CONSTRUCTOR_QUALI_Q2_Q3 = {
-    "neither_q2": -1,
-    "one_q2": 1,
-    "both_q2": 3,
-    "one_q3": 5,
-    "both_q3": 10,
-}
-CONSTRUCTOR_DSQ_PENALTY_QUALI = -5    # per disqualified driver in qualifying
-CONSTRUCTOR_DSQ_PENALTY_SPRINT = -10  # per disqualified driver in sprint
-CONSTRUCTOR_DSQ_PENALTY_RACE = -20    # per disqualified driver in race
-
-# Pit stop scoring (constructor, based on stationary stop time)
-PIT_STOP_TIERS = [
-    (0.0, 2.0, 20),    # under 2.0s
-    (2.0, 2.2, 10),    # 2.00 - 2.19s
-    (2.2, 2.5, 5),     # 2.20 - 2.49s
-    (2.5, 3.0, 2),     # 2.50 - 2.99s
-    (3.0, float('inf'), 0),  # over 3.0s
-]
-PIT_STOP_FASTEST_BONUS = 5     # fastest pit stop of the race
-PIT_STOP_WORLD_RECORD_BONUS = 15  # new world record (current record 1.8s)
-PIT_STOP_WORLD_RECORD_TIME = 1.8  # current world record in seconds
-
-# ──────────────────────────────────────────────────────────────
-# 2026 Grid - Driver/Team Mapping
-# ──────────────────────────────────────────────────────────────
-
-GRID_2026 = {
-    "Verstappen": "Red Bull Racing",
-    "Hadjar": "Red Bull Racing",
-    "Russell": "Mercedes",
-    "Antonelli": "Mercedes",
-    "Norris": "McLaren",
-    "Piastri": "McLaren",
-    "Leclerc": "Ferrari",
-    "Hamilton": "Ferrari",
-    "Gasly": "Alpine",
-    "Colapinto": "Alpine",
-    "Sainz": "Williams",
-    "Albon": "Williams",
-    "Alonso": "Aston Martin",
-    "Stroll": "Aston Martin",
-    "Bearman": "Haas F1 Team",
-    "Ocon": "Haas F1 Team",
-    "Hulkenberg": "Audi",
-    "Bortoleto": "Audi",
-    "Lawson": "Racing Bulls",
-    "Lindblad": "Racing Bulls",
-    "Perez": "Cadillac",
-    "Bottas": "Cadillac",
-}
+from f1_rules import (  # noqa: E402,F401
+    QUALI_PTS, RACE_PTS, SPRINT_PTS, DNF_PENALTY_RACE, DNF_PENALTY_SPRINT, DSQ_PENALTY,
+    QUALI_NC_PENALTY, OVERTAKE_BONUS, POSITION_GAINED, POSITION_LOST, FASTEST_LAP_RACE,
+    FASTEST_LAP_SPRINT, DRIVER_OF_THE_DAY, CONSTRUCTOR_QUALI_Q2_Q3,
+    CONSTRUCTOR_DSQ_PENALTY_QUALI, CONSTRUCTOR_DSQ_PENALTY_SPRINT, CONSTRUCTOR_DSQ_PENALTY_RACE,
+    Q2_CUTOFF, Q3_CUTOFF, PIT_STOP_TIERS, PIT_STOP_FASTEST_BONUS,
+    PIT_STOP_WORLD_RECORD_BONUS, PIT_STOP_WORLD_RECORD_TIME,
+)
+from f1_calendar import GRID_2026, canon_driver, canon_team  # noqa: E402,F401
+from f1_weekend_data import compute_overtakes  # noqa: E402
 
 
 # ──────────────────────────────────────────────────────────────
@@ -227,28 +163,19 @@ def _latest_positions(positions_list):
     return latest
 
 
-def _compute_overtakes(laps_list, driver_map):
-    """Count net overtakes per driver from lap-by-lap position data."""
-    driver_laps = {}
-    for lap in laps_list:
-        dn = lap.get("driver_number")
-        lap_num = lap.get("lap_number")
-        pos = lap.get("position")
-        if dn and lap_num and pos:
-            driver_laps.setdefault(dn, []).append((lap_num, pos))
+def _compute_overtakes(session, driver_map):
+    """
+    On-track passes per driver name for a race/sprint session.
 
-    overtakes = {}
-    for dn, laps in driver_laps.items():
-        laps.sort()
-        ov = 0
-        for i in range(1, len(laps)):
-            diff = laps[i - 1][1] - laps[i][1]
-            if diff > 0:
-                ov += diff
-        name = driver_map.get(dn, str(dn))
-        overtakes[name] = ov
-
-    return overtakes
+    The OpenF1 `laps` endpoint has no `position` field (the old implementation
+    read one and therefore always returned 0), so passes are derived from the
+    position stream with pit-cycle shuffles excluded - see
+    f1_weekend_data.compute_overtakes.
+    """
+    raw = compute_overtakes(session.get("positions"), session.get("laps"), session.get("pit"))
+    if not raw:
+        return {}
+    return {driver_map.get(dn, str(dn)): n for dn, n in raw.items()}
 
 
 def _find_fastest_lap(laps_list, driver_map):
@@ -294,7 +221,7 @@ def _fastest_pit_stop(pit_list, driver_map, team_map):
         return None, None
     team_best = {}
     for p in pit_list:
-        dur = p.get("pit_duration")
+        dur = p.get("stop_duration") or p.get("pit_duration")
         dn = p.get("driver_number")
         if dur and dn:
             team = team_map.get(dn, "Unknown")
@@ -320,13 +247,16 @@ def process_raw_data(data, years_filter=None):
 
         location = meeting["location"]
         drivers_list = meeting.get("drivers", [])
-        driver_map = {d["driver_number"]: d.get("last_name", "") for d in drivers_list}
-        team_map = {d["driver_number"]: d.get("team_name", "Unknown") for d in drivers_list}
+        # Canonical names: strip accents (Hülkenberg -> Hulkenberg) and map team
+        # renames (Kick Sauber -> Audi, RB -> Racing Bulls) so history lines up
+        # with the 2026 grid.
+        driver_map = {d["driver_number"]: canon_driver(d.get("last_name", "")) for d in drivers_list}
+        team_map = {d["driver_number"]: canon_team(d.get("team_name", "Unknown")) for d in drivers_list}
 
         # Build name->team mapping
         name_team = {}
         for d in drivers_list:
-            name_team[d.get("last_name", "")] = d.get("team_name", "Unknown")
+            name_team[canon_driver(d.get("last_name", ""))] = canon_team(d.get("team_name", "Unknown"))
 
         # Collect session results
         quali_pos = {}
@@ -371,7 +301,7 @@ def process_raw_data(data, years_filter=None):
                     name = driver_map.get(dn)
                     if name:
                         race_pos[name] = pos
-                race_overtakes = _compute_overtakes(session.get("laps", []), driver_map)
+                race_overtakes = _compute_overtakes(session, driver_map)
                 race_fastest_lap = _find_fastest_lap(session.get("laps", []), driver_map)
                 race_dnf = _detect_dnf(session.get("stints", []), driver_map)
                 race_pit_data = session.get("pit", [])
@@ -392,7 +322,7 @@ def process_raw_data(data, years_filter=None):
                     name = driver_map.get(dn)
                     if name:
                         sprint_pos[name] = pos
-                sprint_overtakes = _compute_overtakes(session.get("laps", []), driver_map)
+                sprint_overtakes = _compute_overtakes(session, driver_map)
                 sprint_fastest_lap = _find_fastest_lap(session.get("laps", []), driver_map)
                 sprint_dnf = _detect_dnf(session.get("stints", []), driver_map)
 
@@ -493,11 +423,11 @@ def process_raw_data(data, years_filter=None):
                     c_pts += QUALI_NC_PENALTY  # NC/DSQ/no time
 
             # Q2/Q3 progression bonus (infer from final quali position)
-            # Top 15 made Q2, top 10 made Q3
+            # Top 16 made Q2 (22 cars: Q1 drops 6), top 10 made Q3
             team_quali_positions = [quali_pos.get(d) for d in team_drivers
                                     if isinstance(quali_pos.get(d), int)]
-            q3_count = sum(1 for p in team_quali_positions if p <= 10)
-            q2_count = sum(1 for p in team_quali_positions if p <= 15)
+            q3_count = sum(1 for p in team_quali_positions if p <= Q3_CUTOFF)
+            q2_count = sum(1 for p in team_quali_positions if p <= Q2_CUTOFF)
             if q3_count >= 2:
                 c_pts += CONSTRUCTOR_QUALI_Q2_Q3["both_q3"]
             elif q3_count == 1:
@@ -593,14 +523,19 @@ def process_raw_data(data, years_filter=None):
 # ──────────────────────────────────────────────────────────────
 
 def add_round_numbers(df):
-    """Add sequential round numbers within each year based on appearance order."""
+    """
+    Add sequential round numbers within each year, in the order races were run.
+
+    Rows are written in chronological meeting order, so first appearance is the
+    calendar order.  (This used to sort circuits alphabetically, which scrambled
+    every lag / rolling feature built on top of it.)
+    """
     if df.empty:
         return df
     df = df.copy()
     locations_by_year = (
         df.drop_duplicates(subset=["year", "location"])
-        .sort_values(["year", "location"])
-        .groupby("year")["location"]
+        .groupby("year", sort=False)["location"]
         .apply(list)
         .to_dict()
     )

@@ -1,0 +1,8 @@
+numpy
+pandas
+requests
+# only needed for the original XGBoost back-end / f1_trainer.py:
+scikit-learn
+xgboost
+# tests:
+pytest

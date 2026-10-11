@@ -1,14 +1,22 @@
-#!/usr/bin/env python3
 """
-F1 Fantasy ML Predictor (f1_ml_predictor.py)
-=============================================
-Loads trained XGBoost models and predicts fantasy points
-for drivers and constructors at a given 2026 race.
+F1 Fantasy Predictor (f1_ml_predictor.py)
+==========================================
+Predicts fantasy points for drivers and constructors at a given 2026 race.
 
-From the *second* race onwards, the predictor automatically fetches
-actual 2026 qualifying/race results from OpenF1 and uses them to
-update lag features (rolling averages, previous result, etc.) so that
-each prediction reflects what really happened in earlier rounds.
+Two back-ends:
+
+  sim   (default)  f1_weekend_model.py - a rating + Monte-Carlo simulation of
+                   the whole weekend (qualifying, sprint, race, DNFs, overtakes,
+                   fastest lap, pit stops, Driver of the Day).  Gives every event
+                   and component separately, with uncertainty.
+  xgb              the original gradient-boosted regressors trained by
+                   f1_trainer.py (one number per driver per race).
+  blend            average of the two.
+
+Choose with the F1_PREDICTOR environment variable, or the `backend=` argument.
+From the *second* race onwards both back-ends automatically fetch actual 2026
+results from OpenF1 and use them, so every forecast reflects what really
+happened in earlier rounds.
 """
 
 import os
@@ -19,50 +27,19 @@ import time
 import pandas as pd
 import numpy as np
 
-from f1_trainer import (
-    GRID_2026, process_raw_data, add_round_numbers,
-    openf1_get,
+from f1_calendar import (  # noqa: F401  (re-exported for existing callers)
+    GRID_2026, RACE_CALENDAR_2026, get_race_info, LOCATION_ALIASES as _LOCATION_ALIASES,
+    round_for_location as _round_for_location,
 )
-from openf1_utils import openf1_client
 
-# ──────────────────────────────────────────────────────────────
-# 2026 Race Calendar (location names matching OpenF1 conventions)
-# ──────────────────────────────────────────────────────────────
-
-RACE_CALENDAR_2026 = [
-    {"round": 1, "location": "Melbourne", "name": "Australian GP", "sprint": False},
-    {"round": 2, "location": "Shanghai", "name": "Chinese GP", "sprint": True},
-    {"round": 3, "location": "Suzuka", "name": "Japanese GP", "sprint": False},
-    {"round": 4, "location": "Sakhir", "name": "Bahrain GP", "sprint": False},
-    {"round": 5, "location": "Jeddah", "name": "Saudi Arabian GP", "sprint": False},
-    {"round": 6, "location": "Miami", "name": "Miami GP", "sprint": True},
-    {"round": 7, "location": "Montréal", "name": "Canadian GP", "sprint": True},
-    {"round": 8, "location": "Monaco", "name": "Monaco GP", "sprint": False},
-    {"round": 9, "location": "Barcelona", "name": "Barcelona-Catalunya GP", "sprint": False},
-    {"round": 10, "location": "Spielberg", "name": "Austrian GP", "sprint": False},
-    {"round": 11, "location": "Silverstone", "name": "British GP", "sprint": True},
-    {"round": 12, "location": "Spa-Francorchamps", "name": "Belgian GP", "sprint": False},
-    {"round": 13, "location": "Budapest", "name": "Hungarian GP", "sprint": False},
-    {"round": 14, "location": "Zandvoort", "name": "Dutch GP", "sprint": True},
-    {"round": 15, "location": "Monza", "name": "Italian GP", "sprint": False},
-    {"round": 16, "location": "Madrid", "name": "Spanish GP", "sprint": False},
-    {"round": 17, "location": "Baku", "name": "Azerbaijan GP", "sprint": False},
-    {"round": 18, "location": "Marina Bay", "name": "Singapore GP", "sprint": True},
-    {"round": 19, "location": "Austin", "name": "US GP", "sprint": False},
-    {"round": 20, "location": "Mexico City", "name": "Mexico City GP", "sprint": False},
-    {"round": 21, "location": "São Paulo", "name": "São Paulo GP", "sprint": False},
-    {"round": 22, "location": "Las Vegas", "name": "Las Vegas GP", "sprint": False},
-    {"round": 23, "location": "Lusail", "name": "Qatar GP", "sprint": False},
-    {"round": 24, "location": "Yas Island", "name": "Abu Dhabi GP", "sprint": False},
-]
+DEFAULT_BACKEND = os.environ.get("F1_PREDICTOR", "sim").lower()
+DEFAULT_SIMS = int(os.environ.get("F1_SIMS", "6000"))
 
 
-def get_race_info(round_num):
-    """Get race info from the calendar by round number."""
-    for race in RACE_CALENDAR_2026:
-        if race["round"] == round_num:
-            return race
-    return None
+def _trainer():
+    """Import the (heavy) trainer lazily - only the xgb path / data fetching needs it."""
+    import f1_trainer
+    return f1_trainer
 
 
 # ──────────────────────────────────────────────────────────────
@@ -92,36 +69,6 @@ def load_constructor_model(path="f1_constructor_model.pkl"):
 CACHE_FILE_2026 = "raw_2026_results.json"
 
 
-# Aliases for OpenF1 location names that differ from our calendar
-_LOCATION_ALIASES = {
-    "monte carlo": "Monaco",
-    "yas marina": "Yas Island",
-    "miami gardens": "Miami",
-    "imola": "Barcelona",        # Imola no longer on 2026 calendar, closest match
-    "le castellet": "Barcelona",
-    "montreal": "Montréal",
-}
-
-
-def _round_for_location(location):
-    """Map a location string to its 2026 round number (fuzzy + alias match)."""
-    loc_lower = location.lower().strip()
-
-    # Check aliases first
-    for alias, canonical in _LOCATION_ALIASES.items():
-        if alias in loc_lower:
-            for race in RACE_CALENDAR_2026:
-                if race["location"] == canonical:
-                    return race["round"]
-
-    # Substring match against calendar
-    for race in RACE_CALENDAR_2026:
-        cal = race["location"].lower()
-        if cal in loc_lower or loc_lower in cal:
-            return race["round"]
-    return None
-
-
 def fetch_2026_results():
     """
     Fetch all completed 2026 meeting data from OpenF1.
@@ -136,6 +83,8 @@ def fetch_2026_results():
 
     cached_keys = {m["meeting_key"] for m in cached}
 
+    from f1_trainer import openf1_get
+    from openf1_utils import openf1_client
     openf1_client.check_refresh()
     meetings = openf1_get("meetings", {"year": 2026})
     if not meetings:
@@ -183,6 +132,14 @@ def fetch_2026_results():
                 if result:
                     meeting_data["sessions"].append(result)
 
+        # A meeting is only final once every Race / Sprint session has results.
+        # (A future or in-progress race weekend has a scheduled Race session but
+        # no positions yet; caching it would freeze it as "empty" forever.)
+        race_like = [r for r in meeting_data["sessions"] if r["session_type"] == "Race"]
+        if not race_like or any(not r.get("positions") for r in race_like):
+            print(f"  ⏳ {location}: race not finished yet - not caching")
+            continue
+
         new_meetings.append(meeting_data)
         time.sleep(0.1)
 
@@ -214,6 +171,7 @@ def get_completed_2026_rounds(meetings_2026):
 
 def _load_historical_training_data():
     """Load the saved training CSVs from model training and add round numbers."""
+    add_round_numbers = _trainer().add_round_numbers
     driver_df = None
     constructor_df = None
     if os.path.exists("f1_driver_training_data.csv"):
@@ -235,6 +193,7 @@ def build_combined_data(up_to_round):
     Returns (driver_df, constructor_df) with round numbers assigned.
     """
     hist_driver_df, hist_constructor_df = _load_historical_training_data()
+    process_raw_data = _trainer().process_raw_data
 
     if up_to_round <= 1:
         # No prior 2026 data to incorporate
@@ -415,8 +374,8 @@ def _default_constructor_lags():
 # Prediction
 # ──────────────────────────────────────────────────────────────
 
-def predict_driver_scores(round_num, year=2026):
-    """Predict fantasy points for all 2026 drivers at a given race."""
+def predict_driver_scores_xgb(round_num, year=2026):
+    """XGBoost: predict fantasy points for all 2026 drivers at a given race."""
     race_info = get_race_info(round_num)
     if not race_info:
         print(f"  ⚠ Round {round_num} not found in calendar")
@@ -487,8 +446,8 @@ def predict_driver_scores(round_num, year=2026):
     return scores
 
 
-def predict_constructor_scores(round_num, year=2026):
-    """Predict fantasy points for all 2026 constructors at a given race."""
+def predict_constructor_scores_xgb(round_num, year=2026):
+    """XGBoost: predict fantasy points for all 2026 constructors at a given race."""
     race_info = get_race_info(round_num)
     if not race_info:
         return {}
@@ -548,11 +507,177 @@ def predict_constructor_scores(round_num, year=2026):
     return scores
 
 
-def predict_all(round_num, year=2026):
+# ──────────────────────────────────────────────────────────────
+# Weekend simulator back-end
+# ──────────────────────────────────────────────────────────────
+
+_SIM_STATE = {"forecaster": None, "stamp": None, "cache": {}}
+_KNOWN = {}     # round -> real results (quali / sprint_quali) to condition forecasts on
+
+
+def register_known_results(round_num, known):
+    """Remember real session results for a round; later forecasts of it use them."""
+    if known:
+        _KNOWN[round_num] = known
+    else:
+        _KNOWN.pop(round_num, None)
+
+
+def _results_stamp():
+    from f1_weekend_data import CURRENT_JSON, HISTORICAL_JSON, DRIVER_CSV
+    return tuple(os.path.getmtime(p) if os.path.exists(p) else 0 for p in (CURRENT_JSON, HISTORICAL_JSON, DRIVER_CSV))
+
+
+def refresh_live_results(round_num):
+    """Pull any newly completed 2026 rounds into raw_2026_results.json (best effort)."""
+    if round_num <= 1:
+        return
+    try:
+        fetch_2026_results()
+    except Exception as exc:   # offline / API down / openf1_utils missing: use what is cached
+        print(f"  ℹ Could not refresh live 2026 results ({exc.__class__.__name__}); using cached data.")
+
+
+def fetch_known_results(round_num, now=None):
+    """
+    Detect which sessions of this weekend have already finished on OpenF1 and
+    return them as a `known` dict for the simulator:
+
+        {"quali": [...], "sprint_quali": [...]}   (driver last names, best first)
+
+    Lets the race forecast be conditioned on the real grid as soon as
+    qualifying is over (e.g. before deciding on a Final Fix).  Best effort:
+    returns {} when offline or nothing has finished.
+    """
+    from f1_trainer import openf1_get
+    from f1_calendar import canon_driver
+    try:
+        meetings = openf1_get("meetings", {"year": 2026}) or []
+        meeting = next((m for m in meetings if _round_for_location(m.get("location", "")) == round_num), None)
+        if not meeting:
+            return {}
+        sessions = openf1_get("sessions", {"meeting_key": meeting["meeting_key"]}) or []
+        drivers = openf1_get("drivers", {"session_key": sessions[0]["session_key"]}) if sessions else []
+    except Exception as exc:
+        print(f"  ℹ Could not check live sessions ({exc.__class__.__name__}).")
+        return {}
+
+    names = {d["driver_number"]: canon_driver(d.get("last_name", "")) for d in drivers}
+    now = pd.Timestamp(now) if now is not None else pd.Timestamp.now(tz="UTC")
+    if now.tzinfo is None:
+        now = now.tz_localize("UTC")
+    quali = sorted([s for s in sessions if s.get("session_type") == "Qualifying"], key=lambda s: s["session_key"])
+    races = [s for s in sessions if s.get("session_type") == "Race"]
+    labels = {}
+    for i, s in enumerate(quali):
+        # sprint weekend: two "Qualifying" sessions, the earlier one is Sprint Qualifying
+        labels[s["session_key"]] = "sprint_quali" if (len(quali) == 2 and len(races) == 2 and i == 0) else "quali"
+
+    known = {}
+    for s in quali:
+        end = pd.to_datetime(s.get("date_end"), utc=True, errors="coerce")
+        if pd.isna(end) or end > now:
+            continue
+        try:
+            recs = openf1_get("position", {"session_key": s["session_key"]}) or []
+        except Exception:
+            continue
+        latest = {}
+        for r in recs:
+            if r.get("driver_number") is not None and r.get("position") is not None:
+                latest[r["driver_number"]] = r["position"]
+        order = [names[dn] for dn, _ in sorted(latest.items(), key=lambda kv: kv[1]) if dn in names]
+        if len(order) >= 10:
+            known[labels[s["session_key"]]] = order
+    return known
+
+
+def get_weekend_forecast(round_num, n=None, known=None, exclude=(), grid_penalties=None,
+                         seed=7, refresh=True):
+    """
+    Full probabilistic forecast of a weekend (see f1_weekend_model.WeekendForecast).
+
+    known : real results to condition on, e.g. {"quali": ["Norris", "Piastri", ...]}
+            - use after qualifying to re-forecast the race on the true grid.
+            Pass "auto" to detect finished sessions on OpenF1.
+    """
+    from f1_weekend_model import WeekendForecaster
+    n = n or DEFAULT_SIMS
+    if refresh:
+        refresh_live_results(round_num)
+    if known == "auto":
+        known = fetch_known_results(round_num) or None
+    elif known is None:
+        known = _KNOWN.get(round_num)
+    stamp = _results_stamp()
+    if _SIM_STATE["forecaster"] is None or _SIM_STATE["stamp"] != stamp:
+        _SIM_STATE.update(forecaster=WeekendForecaster(), stamp=stamp, cache={})
+    key = (round_num, n, seed, json.dumps(known, sort_keys=True), tuple(exclude),
+           json.dumps(grid_penalties, sort_keys=True))
+    cache = _SIM_STATE["cache"]
+    if key not in cache:
+        cache[key] = _SIM_STATE["forecaster"].forecast(
+            round_num, n=n, seed=seed, known=known, exclude=exclude, grid_penalties=grid_penalties)
+    return cache[key]
+
+
+def predict_events(round_num, **kwargs):
+    """
+    Per-event expected points: {"drivers": {name: {"quali", "sprint", "race", "total", "sd"}},
+    "constructors": {...}} - the 'every part of the weekend' view.
+    """
+    fc = get_weekend_forecast(round_num, **kwargs)
+    out = {"drivers": {}, "constructors": {}}
+    for _, r in fc.driver_table().iterrows():
+        out["drivers"][r["driver"]] = {k: round(float(r[k]), 1) for k in ("quali", "sprint", "race", "total", "sd")}
+    for _, r in fc.constructor_table().iterrows():
+        out["constructors"][r["team"]] = {k: round(float(r[k]), 1) for k in ("quali", "sprint", "race", "total", "sd")}
+    return out
+
+
+def _resolve_backend(backend):
+    return (backend or DEFAULT_BACKEND or "sim").lower()
+
+
+def _blend(a, b, w=0.5):
+    if not a:
+        return b
+    if not b:
+        return a
+    return {k: round(w * a[k] + (1 - w) * b.get(k, a[k]), 1) for k in a}
+
+
+def predict_driver_scores(round_num, year=2026, backend=None):
+    """Expected fantasy points for every 2026 driver at `round_num`."""
+    backend = _resolve_backend(backend)
+    if backend == "xgb":
+        return predict_driver_scores_xgb(round_num, year)
+    sim = get_weekend_forecast(round_num).driver_scores()
+    if backend == "blend":
+        return _blend(sim, predict_driver_scores_xgb(round_num, year))
+    return sim
+
+
+def predict_constructor_scores(round_num, year=2026, backend=None):
+    """Expected fantasy points for every 2026 constructor at `round_num`."""
+    backend = _resolve_backend(backend)
+    if backend == "xgb":
+        return predict_constructor_scores_xgb(round_num, year)
+    sim = get_weekend_forecast(round_num).constructor_scores()
+    if backend == "blend":
+        return _blend(sim, predict_constructor_scores_xgb(round_num, year))
+    return sim
+
+
+def predict_driver_std(round_num):
+    """Simulated standard deviation of each driver's weekend total (for boost choice)."""
+    return get_weekend_forecast(round_num).driver_std()
+
+
+def predict_all(round_num, year=2026, backend=None):
     """Predict both driver and constructor scores for a race."""
-    driver_scores = predict_driver_scores(round_num, year)
-    constructor_scores = predict_constructor_scores(round_num, year)
-    return driver_scores, constructor_scores
+    return (predict_driver_scores(round_num, year, backend),
+            predict_constructor_scores(round_num, year, backend))
 
 
 def get_actual_round_points(round_num):
@@ -561,6 +686,7 @@ def get_actual_round_points(round_num):
     Returns (driver_points_dict, constructor_points_dict) or (None, None)
     if the round hasn't been completed yet.
     """
+    process_raw_data = _trainer().process_raw_data
     meetings_2026 = fetch_2026_results()
     if not meetings_2026:
         return None, None
@@ -599,6 +725,7 @@ def get_all_completed_points():
     Return actual fantasy points for ALL completed 2026 rounds.
     Returns {round_num: (driver_pts_dict, constructor_pts_dict)}.
     """
+    process_raw_data = _trainer().process_raw_data
     meetings_2026 = fetch_2026_results()
     if not meetings_2026:
         return {}
