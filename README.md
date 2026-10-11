@@ -18,8 +18,10 @@ python f1_weekend_model.py forecast --round 19 \
 python f1_weekend_model.py forecast --round 19 --penalty Hamilton=3 --exclude Stroll
 python f1_weekend_model.py backtest --years 2025       # walk-forward accuracy on real history
 python f1_weekend_model.py tune --years 2025           # tune half-life / prior trust
+python f1_season.py all --year 2026                     # replay + play + hindsight-optimal season
+python f1_season.py all --demo                          # same, on synthetic data
 python fantasy_optimizer.py                            # interactive optimizer (menu 6 = weekend forecast)
-python -m pytest tests                                 # 38 tests
+python -m pytest tests                                 # unit + integration tests
 ```
 
 Data comes from the files the trainer already writes (`raw_historical_data.json`,
@@ -61,8 +63,8 @@ boost choice (2x / 3x) and what the **No Negative** chip is worth this weekend.
    re-forecast on the true grid – e.g. before spending a Final Fix.
 
 ### Insights it surfaces
-* A slow car on pole *loses* race points (−1 per place lost) even though its win
-  probability rises – the simulator prices that in.
+* Starting on pole can never gain places, so a slower car there bleeds points
+  (−1 per place lost) even as its win probability rises – the simulator prices that in.
 * Chaotic circuits raise both DNF risk and variance, so they favour boosting a
   high-upside driver and make the No Negative chip worth more.
 
@@ -77,6 +79,9 @@ boost choice (2x / 3x) and what the **No Negative** chip is worth this weekend.
 | `f1_synthetic.py` | synthetic seasons with known truth (tests, demo) |
 | `f1_ml_predictor.py` | `predict_*` API used by the optimizer; back-ends `sim` (default) / `xgb` / `blend` via `F1_PREDICTOR` |
 | `f1_trainer.py` | original XGBoost pipeline (still works) |
+| `f1_strategy.py` | exact season optimiser (MILP, validated against exhaustive enumeration): teams, boosts, transfers, free-transfer banking, wildcard / 3x / no-negative |
+| `f1_season.py` | walk-forward replay of a season (rebuilt each weekend from earlier weekends only), live-play simulation, hindsight optimum |
+| `openf1_utils.py` | OpenF1 client (token from `.env`: `OPENF1_USERNAME` / `OPENF1_PASSWORD`) |
 | `fantasy_optimizer.py` | transfers, chips, price changes; now volatility-, chip- and risk-aware |
 
 ## Validation – read this

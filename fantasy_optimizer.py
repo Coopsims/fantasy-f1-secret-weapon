@@ -44,27 +44,14 @@ from f1_ml_predictor import (
     get_all_completed_points,
     RACE_CALENDAR_2026,
 )
-from f1_calendar import GRID_2026
+from f1_calendar import GRID_2026, DEFAULT_DRIVER_PRICES, DEFAULT_CONSTRUCTOR_PRICES
 
 # ──────────────────────────────────────────────────────────────
 # Starting 2026 Driver & Constructor Prices (pre-season defaults)
 # ──────────────────────────────────────────────────────────────
 
-_DEFAULT_DRIVER_PRICES = {
-    "Verstappen": 27.7, "Russell": 27.4, "Norris": 27.2, "Piastri": 25.5,
-    "Antonelli": 23.2, "Leclerc": 22.8, "Hamilton": 22.5, "Hadjar": 15.1,
-    "Gasly": 12.0, "Sainz": 11.8, "Albon": 11.6, "Alonso": 10.0,
-    "Stroll": 8.0, "Bearman": 7.4, "Ocon": 7.3, "Hulkenberg": 6.8,
-    "Lawson": 6.5, "Bortoleto": 6.4, "Lindblad": 6.2, "Colapinto": 6.2,
-    "Perez": 6.0, "Bottas": 5.9,
-}
-
-_DEFAULT_CONSTRUCTOR_PRICES = {
-    "Mercedes": 29.3, "McLaren": 28.7, "Red Bull Racing": 28.2,
-    "Ferrari": 23.3, "Alpine": 12.5, "Williams": 12.0,
-    "Aston Martin": 9.1, "Haas F1 Team": 7.4, "Audi": 5.4,
-    "Racing Bulls": 6.3, "Cadillac": 4.8,
-}
+_DEFAULT_DRIVER_PRICES = DEFAULT_DRIVER_PRICES
+_DEFAULT_CONSTRUCTOR_PRICES = DEFAULT_CONSTRUCTOR_PRICES
 
 # Mapping from f1fantasytools.com IDs to our names
 _TOOLS_DRIVER_ID_MAP = {

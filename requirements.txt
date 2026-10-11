@@ -1,5 +1,6 @@
 numpy
 pandas
+scipy        # exact strategy solver (MILP)
 requests
 # only needed for the original XGBoost back-end / f1_trainer.py:
 scikit-learn

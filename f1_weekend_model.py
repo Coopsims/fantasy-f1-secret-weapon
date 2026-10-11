@@ -44,19 +44,15 @@ import numpy as np
 import pandas as pd
 
 import f1_rules as R
-from f1_calendar import GRID_2026, get_race_info, track_profile, RACE_CALENDAR_2026
+from f1_calendar import (GRID_2026, get_race_info, track_profile, RACE_CALENDAR_2026,
+                         DEFAULT_CONSTRUCTOR_PRICES)
 from f1_weekend_data import Results, load_results, score_weekend_actual
 
 _ND = NormalDist()
 REGIME_START_YEARS = (2026,)       # years where the technical regulations reset
 
 # Pre-season constructor prices: a market-implied prior for 2026 car strength.
-PRIOR_CONSTRUCTOR_PRICES = {
-    "Mercedes": 29.3, "McLaren": 28.7, "Red Bull Racing": 28.2,
-    "Ferrari": 23.3, "Alpine": 12.5, "Williams": 12.0,
-    "Aston Martin": 9.1, "Haas F1 Team": 7.4, "Audi": 5.4,
-    "Racing Bulls": 6.3, "Cadillac": 4.8,
-}
+PRIOR_CONSTRUCTOR_PRICES = DEFAULT_CONSTRUCTOR_PRICES
 
 # Relative DNF propensity of each 2026 team before any data (new power units!).
 RELIABILITY_PRIOR = {

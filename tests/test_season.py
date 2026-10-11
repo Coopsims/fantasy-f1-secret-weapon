@@ -1,0 +1,61 @@
+import numpy as np
+import pytest
+
+import f1_season as S
+from f1_strategy import Rules, evaluate_plan
+from f1_synthetic import synthetic_results
+
+
+@pytest.fixture(scope="module")
+def run():
+    res = synthetic_results(seed=9, rounds_2026=5)
+    rep = S.replay(res, 2026, n_sims=800, horizon=2, verbose=False)
+    prices, _ = S.price_table(rep["actuals"]["rounds"], rep["actuals"]["pts"])
+    return res, rep, prices
+
+
+def test_replay_uses_only_earlier_weekends(run):
+    res, rep, _ = run
+    acc = rep["accuracy"]
+    assert list(acc["round"]) == [1, 2, 3, 4, 5]
+    # each step is trained on exactly the weekends before it - one more every round
+    assert list(np.diff(acc["history_weekends"])) == [1, 1, 1, 1]
+    first_2026 = res.weekends[res.weekends["year"] == 2026]["t"].min()
+    assert acc["history_weekends"].iloc[0] == first_2026
+    t_last = rep["actuals"]["t"][-1]
+    assert len(S.truncate(res, t_last).weekends) == t_last
+
+
+def test_forecasts_do_not_change_when_the_future_is_deleted(run):
+    """Strongest leakage test: forecasts for round 3 are identical if rounds 3+ are removed."""
+    res, rep, _ = run
+    t3 = rep["actuals"]["t"][2]
+    cut = S.truncate(res, t3)
+    from f1_weekend_model import WeekendForecaster, ModelParams
+    from dataclasses import replace
+    f = WeekendForecaster(cut, params=replace(ModelParams(), dotd=False), year=2026, verbose=False)
+    fc = f.forecast(3, n=800, seed=103)
+    expect = rep["forecasts"][(3, 3)]["mean"][: len(S.DRIVERS)]
+    got = np.array([fc.total_points(include_dotd=False).mean(0)[fc.drivers.index(d)] for d in S.DRIVERS])
+    assert np.allclose(got, expect)
+
+
+def test_hindsight_optimum_beats_model_and_is_consistent(run):
+    _, rep, prices = run
+    rules = Rules()
+    play = S.play_season(rep, prices, rules, horizon=2, verbose=False)
+    plan, opt = S.hindsight_optimum(rep["actuals"], prices, rules, time_limit=120)
+    assert plan.optimal
+    assert plan.total >= play["total"] - 1e-6
+    tot, *_ , ok = evaluate_plan(plan.teams, plan.boosts, plan.chips, rep["actuals"]["pts"], prices,
+                                 S.IS_DRIVER, rules)
+    assert ok and tot == pytest.approx(plan.total)
+    assert opt["points"].sum() == pytest.approx(plan.total)
+
+
+def test_model_play_is_feasible_every_week(run):
+    _, rep, prices = run
+    play = S.play_season(rep, prices, Rules(), horizon=2, verbose=False)
+    assert len(play["log"]) == 5
+    assert all(len(t) == 7 for t in play["log"]["team"])
+    assert play["log"]["chip"].dropna().is_unique

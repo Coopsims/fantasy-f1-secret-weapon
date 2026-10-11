@@ -5,3 +5,4 @@ venv/
 *.pkl
 raw_historical_data.json
 raw_2026_results.json
+.env

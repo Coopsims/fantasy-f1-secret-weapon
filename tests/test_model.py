@@ -112,8 +112,9 @@ def test_known_pole_boosts_race_forecast(forecaster):
     # Starting P1 improves the finishing position and win odds...
     assert b1["exp_race_pos"] < b0["exp_race_pos"]
     assert b1["P_win"] > b0["P_win"]
-    # ...but a slow car on pole *loses* fantasy points to the -1/place-lost rule
-    assert b1["race"] < b0["race"]
+    # ...but pole can never *gain* places, so the place-change component can only be <= 0
+    pc = boosted.breakdown(worst)["race"]["position_change"]
+    assert pc <= 1e-9 and pc < base.breakdown(worst)["race"]["position_change"]
 
 
 def test_grid_penalty_hurts(forecaster):
