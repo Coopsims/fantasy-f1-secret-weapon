@@ -39,6 +39,7 @@ TRACKING_URI = f"sqlite:///{HERE}/mlflow.db"
 ARTIFACT_ROOT = f"file://{HERE}/mlartifacts"
 EXPERIMENT = "f1-weekend-forecasting"
 PROTOCOL = "v1: dev=2024, val=2025, test=2026 held out; paired bootstrap over weekends"
+DATA_VERSION = "v2-session-names"   # v1 = 2023-24 Sprint Qualifying/Qualifying swapped, 2023 gaps; see results/DATA_CORRECTION.md
 SPLITS = {"dev": 2024, "val": 2025, "test": 2026}
 
 
@@ -119,13 +120,14 @@ class Forecast:
 class Sim:
     kind = "sim"
 
-    def __init__(self, params=None, n_sims=3000, seed=11, recalibrate_every=6):
+    def __init__(self, params=None, n_sims=3000, seed=11, recalibrate_every=6, known_sq=False):
         self.params = replace(params or ModelParams(), dotd=False)
         self.n_sims, self.seed, self.recal = n_sims, seed, recalibrate_every
+        self.known_sq = known_sq       # Sprint weekends: Sprint Qualifying is over before the lock
 
     def describe(self):
         d = {f"p.{k}": v for k, v in asdict(self.params).items()}
-        d.update(n_sims=self.n_sims, seed=self.seed, recalibrate_every=self.recal)
+        d.update(n_sims=self.n_sims, seed=self.seed, recalibrate_every=self.recal, known_sq=self.known_sq)
         return d
 
     def predict(self, res, truth, ctruth, targets):
@@ -147,7 +149,12 @@ class Sim:
                 calib = None
             model = fit_model(hist, field_, year, float(t), p, calib)
             calib, since = (model.q_cal, model.r_cal), since + 1
-            fc = simulate_weekend(model, race, n=self.n_sims, seed=self.seed + t)
+            known = None
+            if self.known_sq and bool(w.sprint):
+                sq = sess[sess["session"] == "SQ"].sort_values("finish")
+                if len(sq):
+                    known = {"sprint_quali": list(sq["driver"])}
+            fc = simulate_weekend(model, race, n=self.n_sims, seed=self.seed + t, known=known)
             tot = fc.total_points(include_dotd=False)
             pdnf = fc.dnf["race"].mean(0)
             for i, d in enumerate(fc.drivers):
@@ -243,18 +250,22 @@ class GBM:
     kind = "gbm"
 
     def __init__(self, n_estimators=200, max_depth=3, learning_rate=0.05, min_child_weight=5,
-                 objective="reg:squarederror", min_train_rows=150, seed=0):
+                 objective="reg:squarederror", min_train_rows=150, seed=0, extra=None, extra_cols=()):
         self.kw = dict(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate,
                        min_child_weight=min_child_weight, objective=objective, subsample=0.8,
                        colsample_bytree=0.8, random_state=seed, n_jobs=1)
         self.min_rows = min_train_rows
+        self.extra, self.extra_cols = extra, list(extra_cols)
 
     def describe(self):
-        return {**self.kw, "min_train_rows": self.min_rows, "features": ",".join(GBM_FEATURES)}
+        return {**self.kw, "min_train_rows": self.min_rows, "features": ",".join(GBM_FEATURES + self.extra_cols)}
 
     def predict(self, res, truth, ctruth, targets):
         from xgboost import XGBRegressor
         panel = _panel_features(truth)
+        feats = GBM_FEATURES + self.extra_cols
+        if self.extra is not None and self.extra_cols:
+            panel = panel.merge(self.extra[["t", "driver"] + self.extra_cols], on=["t", "driver"], how="left")
         rows = []
         for w in targets.itertuples():
             t = int(w.t)
@@ -262,8 +273,8 @@ class GBM:
             te = panel[panel["t"] == t]
             if len(tr) < self.min_rows:
                 continue
-            m = XGBRegressor(**self.kw).fit(tr[GBM_FEATURES], tr["total"])
-            pr = m.predict(te[GBM_FEATURES])
+            m = XGBRegressor(**self.kw).fit(tr[feats], tr["total"])
+            pr = m.predict(te[feats])
             rows += [(t, d, float(v)) for d, v in zip(te["driver"], pr)]
         return Forecast(pd.DataFrame(rows, columns=["t", "driver", "pred"]))
 
@@ -358,7 +369,7 @@ def log_run(name, model, fc: Forecast, pw: pd.DataFrame, split, res, tags=None, 
     with mlflow.start_run(run_name=name, nested=parent and mlflow.active_run() is not None):
         mlflow.set_tags({"split": split, "eval_year": SPLITS.get(split, ""), "model_kind": model.kind,
                          "git_sha": git_sha(), "data_fingerprint": data_fingerprint(res),
-                         "protocol": PROTOCOL, **(tags or {})})
+                         "protocol": PROTOCOL, "data_version": DATA_VERSION, **(tags or {})})
         params = {**model.describe(), **(extra_params or {})}
         mlflow.log_params({k: (str(v)[:240] if isinstance(v, str) else v) for k, v in params.items()})
         summ = summarize(pw)

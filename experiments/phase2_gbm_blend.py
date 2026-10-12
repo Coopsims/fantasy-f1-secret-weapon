@@ -22,6 +22,9 @@ with mlflow.start_run(run_name=f"phase2-gbm-blend {datetime.date.today()}"):
     print("top dev GBM configs:", [(round(a, 3), c) for a, c in dev_scores[:5]])
     best = dev_scores[0][1]
     gbm = X.GBM(n_estimators=best[1], max_depth=best[0], learning_rate=best[2], objective=best[3])
+    import json
+    json.dump(dict(n_estimators=best[1], max_depth=best[0], learning_rate=best[2], objective=best[3]),
+              open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "selected_gbm.json"), "w"))
     gfc = {s: X.run_and_log(f"gbm_dev_selected [{s}]", gbm, s, ref=ref[s], tags={"phase": "2", "stage": "gbm-selected"}) for s in ("dev", "val")}
     print("selected", best, {s: round(gfc[s][2]["mae"], 3) for s in gfc})
 

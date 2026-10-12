@@ -78,3 +78,32 @@ def test_weekend_without_qualifying_or_race_is_skipped():
     ok = _meeting(2, "Shanghai", "2026-03-13", RACE)
     res = build_from_meetings([m, ok])
     assert list(res.weekends.location) == ["Shanghai"]
+
+
+def _sprint_weekend(q_key, sq_key, s_key, r_key, named=True):
+    base = _meeting(1, "Miami", "2024-05-03", RACE)
+    mk = lambda key, typ, name: {**base["sessions"][0 if typ == "Qualifying" else 1], "session_key": key, "session_type": typ,
+                                 **({"session_name": name} if named else {})}
+    sessions = [mk(q_key, "Qualifying", "Qualifying"), mk(sq_key, "Qualifying", "Sprint Qualifying"),
+                mk(s_key, "Race", "Sprint"), mk(r_key, "Race", "Race")]
+    if named is False:
+        for s in sessions:
+            s.pop("session_name", None)
+    return {**base, "sessions": sessions}
+
+
+def test_session_names_beat_the_key_order_guess():
+    from f1_weekend_data import _relabel_sessions
+    # 2024-style: the real Qualifying has the LOWER key (9498 < 9502); the old guess swapped them
+    codes = {s["session_name"]: c for c, s in _relabel_sessions(_sprint_weekend(9498, 9502, 9506, 9507)["sessions"])}
+    assert codes == {"Qualifying": "Q", "Sprint Qualifying": "SQ", "Sprint": "S", "Race": "R"}
+    # 2026-style: Sprint Qualifying has the lower key
+    codes = {s["session_name"]: c for c, s in _relabel_sessions(_sprint_weekend(11384, 11379, 11383, 11388)["sessions"])}
+    assert codes == {"Qualifying": "Q", "Sprint Qualifying": "SQ", "Sprint": "S", "Race": "R"}
+
+
+def test_unnamed_legacy_caches_still_use_the_guess():
+    from f1_weekend_data import _relabel_sessions
+    wk = _sprint_weekend(11379, 11384, 11383, 11388, named=False)       # lower key = sprint quali (true for 2025-26)
+    codes = [c for c, _ in _relabel_sessions(wk["sessions"])]
+    assert sorted(codes) == ["Q", "R", "S", "SQ"]

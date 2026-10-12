@@ -180,9 +180,11 @@ def compute_overtakes(positions, laps, pits):
 
 def _relabel_sessions(raw_sessions):
     """
-    OpenF1 labels sprint sessions as plain 'Qualifying' / 'Race'.  On a sprint
-    weekend there are two of each; the lower session_key of each pair is the
-    sprint variant.  Honours an explicit session_name when the cache has one.
+    OpenF1 labels sprint sessions as plain 'Qualifying' / 'Race' (session_type).  When the cache has
+    `session_name` it is authoritative ("Sprint Qualifying", "Sprint Shootout", "Sprint", "Qualifying", "Race").
+    Only for old caches without names: on a sprint weekend the lower session_key of each pair is guessed to be the
+    sprint variant - which is right for the Race pair in every season but WRONG for the Qualifying pair in 2023
+    and 2024 (the real Qualifying has the lower key), so never rely on the guess when names are available.
     """
     sessions = sorted(raw_sessions, key=lambda s: s["session_key"])
     labelled = []
@@ -196,9 +198,9 @@ def _relabel_sessions(raw_sessions):
         if stype in ("Sprint", "Sprint Qualifying") or "sprint" in name:
             code = "SQ" if ("qual" in name or "shootout" in name or stype == "Sprint Qualifying") else "S"
         elif stype == "Qualifying":
-            code = "SQ" if id(s) in sprint_q else "Q"
+            code = "Q" if name else ("SQ" if id(s) in sprint_q else "Q")
         elif stype == "Race":
-            code = "S" if id(s) in sprint_r else "R"
+            code = "R" if name else ("S" if id(s) in sprint_r else "R")
         else:
             continue
         labelled.append((code, s))

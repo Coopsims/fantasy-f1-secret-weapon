@@ -8,6 +8,7 @@ import os, sys, datetime, itertools
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import numpy as np, pandas as pd
 from scipy.optimize import nnls
+from experiments import ens
 import mlflow_experiments as X
 
 SPLIT_YEAR = X.SPLITS
@@ -67,7 +68,7 @@ if __name__ == "__main__":
     res, truth, ctruth = X.get_data()
     wk = res.weekends[res.weekends["year"] <= 2025]
     allt = wk[[(res.weekends["t"] < t).sum() >= 8 for t in wk["t"]]].reset_index(drop=True)
-    gbm_kw = dict(n_estimators=100, max_depth=2, learning_rate=0.03)          # selected on dev in phase 2
+    gbm_kw = dict(ens.GBM_KW)                                                  # selected on dev in phase 2
     base = {"sim": X.Sim().predict(res, truth, ctruth, allt),
             "gbm": X.GBM(**gbm_kw).predict(res, truth, ctruth, allt),
             "ewma": X.Baseline("ewma", 0.2).predict(res, truth, ctruth, allt)}

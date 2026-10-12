@@ -9,3 +9,5 @@ raw_2026_results.json
 mlflow.db
 mlruns/
 mlartifacts/
+raw_practice_data.json
+openf1_full/

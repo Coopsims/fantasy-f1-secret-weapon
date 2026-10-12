@@ -2,6 +2,7 @@ import time
 import requests
 import os
 import threading
+import random
 
 def load_env_file(filepath=".env"):
     """
@@ -24,9 +25,18 @@ def load_env_file(filepath=".env"):
 # Load environment variables from .env if present at the start
 load_env_file()
 
+class OpenF1Error(Exception):
+    """A request that failed (rate limit, server error, timeout...) - as opposed to a successful empty answer."""
+
+
 class OpenF1Client:
     """
     Client for OpenF1 API with support for paid tokens and 1-hour refresh.
+
+    get()         legacy: returns [] when the request fails (indistinguishable from "no data")
+    get_strict()  raises OpenF1Error on failure; [] means OpenF1 really had no rows. Use this for anything cached.
+    Pacing: set `min_interval` (seconds between requests, process-wide). It doubles after each 429 (up to 3 s)
+    and relaxes back towards `base_interval` after a run of successes. See docs/OPENF1_NOTES.md.
     """
     def __init__(self, token=None, refresh_fn=None, base_url="https://api.openf1.org/v1"):
         self.token = token
@@ -35,6 +45,10 @@ class OpenF1Client:
         self.expiry_duration = 3600  # 1 hour
         self.base_url = base_url
         self._lock = threading.Lock()
+        self.base_interval = 0.0
+        self.min_interval = 0.0
+        self._next_ok = 0.0
+        self._ok_streak = 0
 
     def set_token(self, token):
         with self._lock:
@@ -76,6 +90,80 @@ class OpenF1Client:
                     except Exception as e:
                         print(f"  ⚠  Failed to refresh OpenF1 token: {e}")
                         self.last_refresh = time.time()
+
+    # ---- pacing -------------------------------------------------------
+    def set_pacing(self, seconds):
+        self.base_interval = self.min_interval = float(seconds)
+
+    def _pace(self):
+        if self.min_interval <= 0:
+            return
+        with self._lock:
+            now = time.monotonic()
+            at = max(now, self._next_ok)
+            self._next_ok = at + self.min_interval
+        if at > now:
+            time.sleep(at - now)
+
+    def _slow_down(self):
+        with self._lock:
+            self.min_interval = min(max(self.min_interval * 2, 0.5), 3.0)
+            self._ok_streak = 0
+
+    def _success(self):
+        with self._lock:
+            self._ok_streak += 1
+            if self._ok_streak >= 25 and self.min_interval > self.base_interval:
+                self.min_interval = max(self.base_interval, self.min_interval * 0.8)
+                self._ok_streak = 0
+
+    def get_strict(self, endpoint, params=None, retries=6, timeout=90):
+        """JSON rows for the query. [] = OpenF1 answered "no rows" (HTTP 404). Raises OpenF1Error otherwise."""
+        url = f"{self.base_url}/{endpoint}"
+        last = "unknown"
+        for attempt in range(retries):
+            self.check_refresh()
+            self._pace()
+            headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
+            try:
+                r = requests.get(url, params=params, headers=headers, timeout=timeout)
+            except requests.RequestException as e:
+                last = type(e).__name__
+                time.sleep(min(2 ** attempt, 30))
+                continue
+            if r.status_code == 404:
+                self._success()
+                return []
+            if r.status_code == 429:
+                try:
+                    wait = float(r.headers.get("Retry-After"))
+                except (TypeError, ValueError):
+                    wait = min(2 ** (attempt + 1), 60)
+                wait += random.uniform(0, 1)
+                self._slow_down()
+                last = "HTTP 429"
+                print(f"  ⚠  OpenF1 rate limited ({endpoint}, attempt {attempt+1}/{retries}); pacing now "
+                      f"{self.min_interval:.1f}s, sleeping {wait:.0f}s")
+                time.sleep(wait)
+                continue
+            if r.status_code == 401 and self.refresh_fn:
+                self.check_refresh(force=True)
+                last = "HTTP 401"
+                continue
+            if r.status_code >= 500:
+                last = f"HTTP {r.status_code}"
+                time.sleep(min(2 ** attempt, 30))
+                continue
+            if r.status_code >= 400:
+                raise OpenF1Error(f"{endpoint} {params}: HTTP {r.status_code} {r.text[:120]}")
+            try:
+                rows = r.json()
+            except ValueError:
+                last = "invalid JSON"
+                continue
+            self._success()
+            return rows
+        raise OpenF1Error(f"{endpoint} {params}: gave up after {retries} attempts ({last})")
 
     def get(self, endpoint, params=None, retries=3):
         self.check_refresh()

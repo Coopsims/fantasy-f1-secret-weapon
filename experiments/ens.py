@@ -5,7 +5,14 @@ import numpy as np, pandas as pd
 from scipy.optimize import nnls
 import mlflow_experiments as X
 
-GBM_KW = dict(n_estimators=100, max_depth=2, learning_rate=0.03)      # selected on dev (2024) in phase 2
+def _load_gbm_kw():
+    """GBM settings selected on dev (2024) by phase 2 (experiments/selected_gbm.json); default if not run yet."""
+    import json
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selected_gbm.json")
+    return json.load(open(path)) if os.path.exists(path) else dict(n_estimators=100, max_depth=2, learning_rate=0.03)
+
+
+GBM_KW = _load_gbm_kw()
 
 
 def wide_table(truth, fcs):

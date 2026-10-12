@@ -134,3 +134,13 @@ that logs every run to MLflow; `experiments/` holds the scripts that produced `r
 python experiments/phase1_baselines.py            # reference forecasters on 2024 (dev) and 2025 (val)
 mlflow ui --backend-store-uri sqlite:///mlflow.db  # browse params, metrics, per-weekend curves, predictions
 ```
+
+## Data
+
+```bash
+python fetch_openf1_full.py          # one sequential pull of everything useful per weekend -> openf1_full/ (~25 min, 39 MB)
+python rebuild_raw_from_full.py      # regenerate raw_historical_data.json / raw_2026_results.json from it (no network)
+```
+
+Read `docs/OPENF1_NOTES.md` first: rate limits (pace requests at about 1 s, never in parallel), the failed-request-looks-empty
+trap, and the Sprint-weekend session labelling. `results/DATA_CORRECTION.md` explains a labelling bug that affected 2023-24.

@@ -16,9 +16,9 @@ if __name__ == "__main__":
     res, truth, ctruth = X.get_data()
     prereg = {"primary": "nnls(sim,gbm)", "secondary": "blend0.4sim+0.6gbm; sim_default; gbm; ewma0.2; last3",
               "gbm_params": json.dumps(ens.GBM_KW), "rule": "adopt iff driver MAE delta vs sim_default <0 with 95% CI excluding 0",
-              "model_changes_driven_by_2026": "none", "registered_at": datetime.datetime.now().isoformat(timespec="seconds"),
+              "model_changes_driven_by_2026": "none", "rerun": "second holdout evaluation, forced by a DATA correction (Sprint Qualifying/Qualifying labels, 2023 gaps; see results/DATA_CORRECTION.md); candidate set, rule and selection procedure unchanged from the first pre-registration (data v1)", "registered_at": datetime.datetime.now().isoformat(timespec="seconds"),
               "git_sha": X.git_sha(), "data_fingerprint": X.data_fingerprint(res)}
-    with mlflow.start_run(run_name="PRE-REGISTRATION 2026 holdout"):
+    with mlflow.start_run(run_name="PRE-REGISTRATION 2026 holdout (data v2 rerun)"):
         mlflow.set_tags({"phase": "5b-prereg", **prereg})
     wk = res.weekends
     allt = wk[[(wk["t"] < t).sum() >= 8 for t in wk["t"]]].reset_index(drop=True)      # includes 2026

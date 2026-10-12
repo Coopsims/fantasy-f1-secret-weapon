@@ -67,6 +67,7 @@ def get_session_data(session, driver_map):
     data = {
         "session_key": sk,
         "session_type": stype,
+        "session_name": session.get("session_name"),     # authoritative for Sprint vs normal sessions
         # the line-up of THIS session: Practice 1 (used for the meeting-level list) often runs
         # reserve drivers, which hides the real race drivers / puts them in the wrong car
         "drivers": openf1_get("drivers", {"session_key": sk}),
