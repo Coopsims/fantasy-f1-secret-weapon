@@ -54,12 +54,17 @@ def main():
     t0 = [FP.ENTITIES[e] for e in sorted(plan.teams[0])]
     print(f"Model: {spec_name}\nNext race: {names[0]} | value + bank ${state.wealth:.1f}m | {a.free} free transfer(s) | chips {a.chips or 'none'}")
     if plan.chips[0] == "limitless":
-        print(f"\nPLAY LIMITLESS this week: team {t0}, boost {FP.ENTITIES[plan.boosts[0]]} (your team returns afterwards)")
+        print(f"\nPLAY LIMITLESS this week: team {t0}, boost {FP.boost_label(plan, 0)} (your team returns afterwards)")
     else:
         print(f"\nKeep the team (boost {FP.ENTITIES[keep_boost]}): expected {keep_per[0]:.1f} pts")
         print(f"Recommended:  OUT {sorted(set(team) - set(t0)) or '-'}  IN {sorted(set(t0) - set(team)) or '-'}  "
-              f"boost {FP.ENTITIES[plan.boosts[0]]}  chip {plan.chips[0] or '-'}  -> expected {plan.round_points[0]:.1f} pts "
+              f"boost {FP.boost_label(plan, 0)}  chip {plan.chips[0] or '-'}  -> expected {plan.round_points[0]:.1f} pts "
               f"(transfer penalty {plan.penalties[0]:.0f})")
+    R = FP.load_residuals()
+    if R is not None and plan.teams[0] != idx:
+        p_win, (lo, hi), n = FP.move_confidence(plan, idx, keep_boost, pts[0], R)
+        print(f"How sure: with the model's errors from each of the {n} 2026 weekends so far replayed on this choice, the "
+              f"move beats keeping the team in {p_win:.0%} of them; this week's points range {lo:.0f}-{hi:.0f} (10th-90th pct)")
     if "autopilot" in a.chips:
         ap_ = FP.autopilot_advice(plan, pts)
         if ap_:
@@ -69,7 +74,7 @@ def main():
     prev = set(team)
     for k, nm in enumerate(names):
         tk = [FP.ENTITIES[e] for e in sorted(plan.teams[k])]
-        print(f"  {nm:16s} {', '.join(tk)} | boost {FP.ENTITIES[plan.boosts[k]]} | chip {plan.chips[k] or '-'} | "
+        print(f"  {nm:16s} {', '.join(tk)} | boost {FP.boost_label(plan, k)} | chip {plan.chips[k] or '-'} | "
               f"in {sorted(set(tk) - prev) or '-'} | exp {plan.round_points[k]:.1f}")
         if plan.chips[k] != "limitless":
             prev = set(tk)

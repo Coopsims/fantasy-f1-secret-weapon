@@ -118,11 +118,12 @@ def main():
         dout = sorted(prev - set(team)) if prev is not None else []
         cost = float(sum(path[k][FP.ENTITIES.index(x)] for x in team))
         rows.append({"race": nm, "drivers": ", ".join(x for x in team if x in FP.DRIVERS),
-                     "constructors": ", ".join(x for x in team if x in FP.TEAMS), "boost": FP.ENTITIES[plan.boosts[k]],
+                     "constructors": ", ".join(x for x in team if x in FP.TEAMS), "boost": FP.boost_label(plan, k),
                      "chip": plan.chips[k] or "", "in": ", ".join(din) if prev is not None else "(new team)", "out": ", ".join(dout),
                      "transfers": plan.transfers_in[k], "penalty": plan.penalties[k], "exp_points": round(plan.round_points[k], 1),
                      "team_cost": round(cost, 1)})
-        prev = set(team)
+        if plan.chips[k] != "limitless":                   # the game reverts a Limitless team afterwards
+            prev = set(team)
     df = pd.DataFrame(rows)
     with pd.option_context("display.width", 250, "display.max_colwidth", 80):
         print(df.to_string(index=False))

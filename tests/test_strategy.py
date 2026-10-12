@@ -39,7 +39,7 @@ def test_matches_enumeration_from_a_mid_season_state():
 def test_plan_is_feasible_and_self_consistent():
     pts, price, isd, rules = _instance(5, T=4)
     plan = solve_strategy(pts, price, isd, rules)
-    total, per, pens, trs, ok = evaluate_plan(plan.teams, plan.boosts, plan.chips, pts, price, isd, rules)
+    total, per, pens, trs, ok = evaluate_plan(plan.teams, plan.boosts, plan.chips, pts, price, isd, rules, plan_boosts3=plan.boosts3)
     assert ok and total == pytest.approx(plan.total)
     assert sum(1 for c in plan.chips if c) == len([c for c in plan.chips if c])      # chips unique
     assert len({c for c in plan.chips if c}) == len([c for c in plan.chips if c])

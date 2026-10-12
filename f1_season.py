@@ -265,10 +265,10 @@ def play_season(rep, prices, rules=None, horizon=3, discount=0.7, use_chips=True
         team, boost, chip = plan.teams[0], plan.boosts[0], plan.chips[0]
         # realise weekend i
         r, per, pen, trs, ok = evaluate_plan([team], [boost], [chip], act["pts"][i][None, :],
-                                             prices[i][None, :], IS_DRIVER, rules, state)
+                                             prices[i][None, :], IS_DRIVER, rules, state, plan_boosts3=plan.boosts3[:1])
         assert ok
         total += r
-        log.append({"round": rnd, "team": sorted(team), "boost": boost, "chip": chip,
+        log.append({"round": rnd, "team": sorted(team), "boost": boost, "chip": chip, "boost3": plan.boosts3[0],
                     "transfers": trs[0], "penalty": pen[0], "points": per[0], "wealth": state.wealth or rules.budget})
         # roll the state forward with the real prices
         W = (state.wealth if state.wealth is not None else rules.budget)
@@ -357,6 +357,7 @@ def hindsight_optimum(act, prices, rules=None, time_limit=600):
     for i, rnd in enumerate(act["rounds"]):
         rows.append({"round": rnd, "team": [ENTITIES[e] for e in sorted(plan.teams[i])],
                      "boost": ENTITIES[plan.boosts[i]], "chip": plan.chips[i],
+                     "boost3x": ENTITIES[plan.boosts3[i]] if plan.boosts3[i] is not None else "",
                      "transfers": plan.transfers_in[i], "penalty": plan.penalties[i],
                      "points": plan.round_points[i]})
     return plan, pd.DataFrame(rows)

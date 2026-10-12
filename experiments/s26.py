@@ -68,6 +68,10 @@ def prepare(panel_pkl, cache_pkl, sim_params=None):
 
 def _fit(model, Xtr, y, w):
     from sklearn.pipeline import Pipeline
+    import inspect
+    last = model.steps[-1][1] if isinstance(model, Pipeline) else model
+    if "sample_weight" not in inspect.signature(last.fit).parameters:      # kNN: no row weights (half_life / w26 unused)
+        return model.fit(Xtr, y)
     if isinstance(model, Pipeline):
         return model.fit(Xtr, y, **{f"{model.steps[-1][0]}__sample_weight": w})
     return model.fit(Xtr, y, sample_weight=w)

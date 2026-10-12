@@ -10,10 +10,14 @@ if __name__ == "__main__":
     import mlflow_experiments as X
     path = sorted(glob.glob("results/cache/season_replay_forecasts_*.pkl"))[-1]
     res_ = pd.read_pickle(path)
-    names = list(res_[0][2])
+    fcs = {name: {g: (rounds, out[name]) for g, rounds, out in res_} for name in res_[0][2]}
+    model = next(n for n in fcs if n not in ("sim", "sim+ewma0.4"))
+    fcs["planning blend"] = {g: (r, 0.5 * fcs[model][g][1] + 0.5 * fcs["sim+ewma0.4"][g][1]) for g, (r, _) in fcs[model].items()}
+    names = list(fcs)
     rows = []
-    for name, disc, cr in itertools.product(names, (0.6, 0.8, 1.0), (0.0, 10.0, 20.0, 30.0, 45.0)):
-        fc = {g: (rounds, out[name]) for g, rounds, out in res_}
+    reserves = [float(x) for x in os.environ.get("RESERVES", "0,10,20,30,45").split(",")]
+    for name, disc, cr in itertools.product(names, (0.6, 0.8, 1.0), reserves):
+        fc = fcs[name]
         tot, log = play(fc, discount=disc, chip_reserve=cr)
         chips = log[log.chip.notna() & (log.chip != "")][["gameday", "chip"]].values.tolist()
         rows.append({"forecaster": name, "discount": disc, "chip_reserve": cr, "points": tot, "share": tot / 5741.0,

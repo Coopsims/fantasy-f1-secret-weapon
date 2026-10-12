@@ -48,7 +48,7 @@ def test_hindsight_optimum_beats_model_and_is_consistent(run):
     assert plan.optimal
     assert plan.total >= play["total"] - 1e-6
     tot, *_ , ok = evaluate_plan(plan.teams, plan.boosts, plan.chips, rep["actuals"]["pts"], prices,
-                                 S.IS_DRIVER, rules)
+                                 S.IS_DRIVER, rules, plan_boosts3=plan.boosts3)
     assert ok and tot == pytest.approx(plan.total)
     assert opt["points"].sum() == pytest.approx(plan.total)
 

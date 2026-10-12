@@ -107,7 +107,37 @@ def test_no_free_transfers_carry_out_of_a_limitless_week():
     st = State(prev_team=idx, wealth=float(price[0][list(idx)].sum()) + 300, free_transfers=3, chips_left=())
     p = solve_strategy(pts, price[:3], FP.IS_DRIVER, Rules(), st, frozen=(1,))
     assert p.penalties[2] == 10.0 and set(outsiders) <= set(p.teams[2])
-    tot, *_ = evaluate_plan(p.teams, p.boosts, p.chips, pts, price[:3], FP.IS_DRIVER, Rules(), st, frozen=(1,))
+    tot, *_ = evaluate_plan(p.teams, p.boosts, p.chips, pts, price[:3], FP.IS_DRIVER, Rules(), st, frozen=(1,), plan_boosts3=p.boosts3)
     assert abs(tot - p.total) < 1e-6
-    _, _, pen_unfrozen, *_ = evaluate_plan(p.teams, p.boosts, p.chips, pts, price[:3], FP.IS_DRIVER, Rules(), st)
+    _, _, pen_unfrozen, *_ = evaluate_plan(p.teams, p.boosts, p.chips, pts, price[:3], FP.IS_DRIVER, Rules(), st, plan_boosts3=p.boosts3)
     assert pen_unfrozen[2] == 0.0                            # without the rule the 3rd transfer would have been free
+
+
+def test_3x_boost_goes_on_a_second_driver_and_the_2x_stays():
+    # game FAQ: with the x3 Boost chip one driver scores x3 and the regular x2 Boost sits on another driver
+    from f1_strategy import evaluate_plan
+    pts, price = _world(T=1, seed=6)
+    team = _cheap_team(price)
+    idx = frozenset(FP.ENTITIES.index(n) for n in team)
+    st = State(prev_team=idx, wealth=float(price[0][list(idx)].sum()), free_transfers=0, chips_left=("3x_booster",))
+    p = solve_strategy(pts[:1], price[:1], FP.IS_DRIVER, Rules(), st)
+    drv = sorted((e for e in idx if FP.IS_DRIVER[e]), key=lambda e: -pts[0][e])
+    assert p.chips[0] == "3x_booster" and p.boosts3[0] == drv[0] and p.boosts[0] == drv[1]
+    want = sum(pts[0][e] for e in idx) + 2 * pts[0][drv[0]] + pts[0][drv[1]]
+    assert abs(p.round_points[0] - want) < 1e-6
+    bad, *_ , ok = evaluate_plan(p.teams, p.boosts, p.chips, pts[:1], price[:1], FP.IS_DRIVER, Rules(), st, plan_boosts3=p.boosts)
+    assert not ok                                            # x3 and x2 on the same driver is not allowed
+
+
+def test_move_confidence_counts_error_patterns_where_the_move_wins():
+    E = len(FP.ENTITIES)
+    pts = np.zeros(E)
+    keep = frozenset([0, 1, 2, 3, 4, 22, 23])
+    move = frozenset([0, 1, 2, 3, 5, 22, 23])                # driver 4 out, driver 5 in
+    pts[[4, 5]] = [10.0, 15.0]
+    R = np.zeros((4, E))
+    R[0, 5] = -20.0                                          # one pattern where the new driver flops
+    from f1_strategy import Plan
+    plan = Plan([move], [0], [None], [1], [0.0], [15.0], 15.0, boosts3=[None])
+    p, (lo, hi), n = FP.move_confidence(plan, keep, 0, pts, R)
+    assert n == 4 and p == 0.75 and lo < hi

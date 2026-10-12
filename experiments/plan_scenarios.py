@@ -37,7 +37,7 @@ if __name__ == "__main__":
             team = [FP.ENTITIES[e] for e in sorted(p.teams[k])]
             din, dout = sorted(set(team) - prev), sorted(prev - set(team))
             lines.append(f"| {nm} | {', '.join(x for x in team if x in FP.DRIVERS)} | {', '.join(x for x in team if x in FP.TEAMS)} | "
-                         f"{FP.ENTITIES[p.boosts[k]]} | {p.chips[k] or ''} | {', '.join(din) or '-'} | {', '.join(dout) or '-'} | {p.round_points[k]:.1f} |")
+                         f"{FP.boost_label(p, k)} | {p.chips[k] or ''} | {', '.join(din) or '-'} | {', '.join(dout) or '-'} | {p.round_points[k]:.1f} |")
             if p.chips[k] != "limitless":
                 prev = set(team)
         lines.append("")

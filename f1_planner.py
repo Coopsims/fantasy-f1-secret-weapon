@@ -235,6 +235,47 @@ def autopilot_gain(team, pts_row, n=20000, seed=0):
     return float(draws.max(1).mean() - np.max(np.asarray(pts_row)[d]))
 
 
+RESIDUALS_FILE = os.path.join("results", "forecast_residuals_2026.csv")
+
+
+def load_residuals(path=RESIDUALS_FILE):
+    """(gamedays x 33) bank of past 2026 forecast errors (official - planning forecast; experiments/forecast_residuals.py).
+    A missing asset-weekend counts as no error."""
+    if not os.path.exists(path):
+        return None
+    r = pd.read_csv(path)
+    return r.pivot_table(index="gameday", columns="asset", values="residual").reindex(columns=ENTITIES).fillna(0.0).values
+
+
+def week_points_draws(team, boost, chip, pts_row, R, penalty=0.0, boost3=None):
+    """One week's points for a team under each replayed error pattern (rows of R), scored as the game does."""
+    x = np.asarray(pts_row, float)[None, :] + R
+    if chip == "no_negative":
+        x = np.maximum(x, 0.0)
+    out = x[:, sorted(team)].sum(1) + x[:, boost] - penalty
+    if chip == "3x_booster" and boost3 is not None:
+        out = out + 2.0 * x[:, boost3]
+    return out
+
+
+def move_confidence(plan, keep_team, keep_boost, pts_row, R):
+    """Share of past error patterns in which this week's recommended move scores more than keeping the team, and the
+    10th-90th percentile of the recommended week's points.  Errors are replayed a whole gameday at a time, so a
+    constructor's error moves with its drivers' (their correlation is ~0.98)."""
+    rec = week_points_draws(plan.teams[0], plan.boosts[0], plan.chips[0], pts_row, R, plan.penalties[0],
+                            plan.boosts3[0] if plan.boosts3 else None)
+    keep = week_points_draws(keep_team, keep_boost, None, pts_row, R)
+    return float((rec > keep).mean()), (float(np.percentile(rec, 10)), float(np.percentile(rec, 90))), len(R)
+
+
+def boost_label(plan, k):
+    """'Antonelli' (the x2 boost) or, in a 3x_booster week, 'Antonelli 3x + Russell 2x'."""
+    b3 = plan.boosts3[k] if plan.boosts3 else None
+    if b3 is None:
+        return ENTITIES[plan.boosts[k]]
+    return f"{ENTITIES[b3]} 3x + {ENTITIES[plan.boosts[k]]} 2x"
+
+
 def limitless_team(pts_row, locked_out=()):
     """Best unconstrained team for one race (no budget, no transfer cost): top 5 drivers + top 2 constructors, 2x boost."""
     v = np.array(pts_row, float)
@@ -304,7 +345,7 @@ def _plan(pts, price_path, team=None, bank=0.0, budget=100.0, free=2, chips=(), 
         for n in locked_in:
             true[:, ENTITIES.index(canon_entity(n))] -= big
         tot, per, pen, trs, ok = evaluate_plan(p.teams, p.boosts, p.chips, true, price_path[:H], IS_DRIVER, rules, state,
-                                                   frozen=_frozen)
+                                                   frozen=_frozen, plan_boosts3=p.boosts3)
         p = replace(p, round_points=list(per), total=float(tot))
     return p, state
 

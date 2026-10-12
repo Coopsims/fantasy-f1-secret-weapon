@@ -22,7 +22,8 @@ Rules modelled (all configurable in `Rules`)
   * transfers: `free_per_round` free transfers a weekend, bank capped at
     `max_bank`; each transfer beyond the free ones costs `penalty` points.
   * chips (each once, at most one a weekend): wildcard (unlimited free
-    transfers), 3x booster (boost is x3), no negative (negative scores -> 0).
+    transfers), 3x booster (one more held driver scores x3 - the x2 boost stays on a
+    different driver, as the game's FAQ says), no negative (negative scores -> 0).
   * Final Fix and Autopilot are NOT modelled (they depend on in-weekend information).
 """
 
@@ -66,6 +67,7 @@ class Plan:
     objective: float = None
     status: str = ""
     optimal: bool = False
+    boosts3: list = None              # x3 driver per round (3x_booster weeks; None otherwise) - the x2 boost is another driver
 
 
 def _chip_pts(vals, chip):
@@ -73,11 +75,12 @@ def _chip_pts(vals, chip):
 
 
 def evaluate_plan(plan_teams, plan_boosts, plan_chips, pts, price, is_driver, rules, state=None,
-                  discount=None, frozen=()):
+                  discount=None, frozen=(), plan_boosts3=None):
     """
     Score a plan under the rules.  Returns (total, per_round_points, penalties, transfers,
     feasible).  This is the single definition of the rules that the MILP and the brute
-    force are both checked against.
+    force are both checked against.  plan_boosts3: the x3 driver of each 3x_booster week (required
+    there; it must be a held driver other than the x2 boost).
     """
     state = state or State(free_transfers=rules.free_per_round, chips_left=rules.chips)
     T = len(plan_teams)
@@ -95,6 +98,9 @@ def evaluate_plan(plan_teams, plan_boosts, plan_chips, pts, price, is_driver, ru
         cost = sum(price[t][e] for e in team)
         if cost > W + 1e-9:
             return -np.inf, [], [], [], False
+        b3 = None if plan_boosts3 is None else plan_boosts3[t]
+        if chip == "3x_booster" and (b3 is None or b3 == boost or b3 not in team or not is_driver[b3]):
+            return -np.inf, [], [], [], False
         n_in = 0 if prev is None else len(team - prev)
         pen = 0.0
         if prev is not None and chip != "wildcard":
@@ -107,8 +113,7 @@ def evaluate_plan(plan_teams, plan_boosts, plan_chips, pts, price, is_driver, ru
         v = np.array([pts[t][e] for e in sorted(team)], dtype=float)
         v = _chip_pts(v, chip)
         bp = _chip_pts(np.array([pts[t][boost]]), chip)[0]
-        mult = 2.0 if chip == "3x_booster" else 1.0
-        r = float(v.sum() + mult * bp - pen)
+        r = float(v.sum() + bp - pen + (2.0 * pts[t][b3] if chip == "3x_booster" else 0.0))
         w = 1.0 if discount is None else discount[t]
         total += w * r
         per_round.append(r)
@@ -245,8 +250,8 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
         # team composition
         add({**{i: 1 for i in x[is_driver]}}, rules.n_drivers, rules.n_drivers)
         add({**{i: 1 for i in x[~is_driver]}}, rules.n_constructors, rules.n_constructors)
-        # exactly one boost, on a held driver
-        add({**{i: 1 for i in b1[is_driver]}, **{i: 1 for i in b3[is_driver]}}, 1, 1)
+        # exactly one x2 boost on a held driver; the 3x chip puts x3 on a different held driver
+        add({i: 1 for i in b1[is_driver]}, 1, 1)
         for e in D:
             add({b1[e]: 1, b3[e]: 1, x[e]: -1}, -np.inf, 0)
         # one chip per weekend
@@ -330,11 +335,12 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
     if res.x is None:
         return Plan([], [], [], [], [], [], -np.inf, status=res.message, optimal=False)
     xs = res.x
-    teams, boosts, chips, tr_in, pens, rpts = [], [], [], [], [], []
+    teams, boosts, boosts3, chips, tr_in, pens, rpts = [], [], [], [], [], [], []
     for t in range(T):
         teams.append(frozenset(int(e) for e in np.flatnonzero(xs[idx[("x", t)]] > 0.5)))
-        b = np.flatnonzero((xs[idx[("b1", t)]] + xs[idx[("b3", t)]]) > 0.5)
-        boosts.append(int(b[0]))
+        boosts.append(int(np.flatnonzero(xs[idx[("b1", t)]] > 0.5)[0]))
+        b3s = np.flatnonzero(xs[idx[("b3", t)]] > 0.5)
+        boosts3.append(int(b3s[0]) if len(b3s) else None)
         chip = None
         if xs[idx[("wc", t)][0]] > 0.5:
             chip = "wildcard"
@@ -343,7 +349,7 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
         elif xs[idx[("b3", t)]].max() > 0.5:
             chip = "3x_booster"
         chips.append(chip)
-    total, per, pen, trs, ok = evaluate_plan(teams, boosts, chips, pts, price, is_driver, rules, state, discount, frozen)
+    total, per, pen, trs, ok = evaluate_plan(teams, boosts, chips, pts, price, is_driver, rules, state, discount, frozen, boosts3)
     if nn_gain is not None:                  # expected value of No Negative under uncertainty, not just on the means
         for t in range(T):
             if chips[t] == "no_negative":
@@ -351,7 +357,7 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
                 per[t] += float(extra)
                 total += float(extra) * (1.0 if discount is None else discount[t])
     return Plan(teams, boosts, chips, trs, pen, per, total, objective=-res.fun,
-                status=res.message, optimal=bool(res.status == 0))
+                status=res.message, optimal=bool(res.status == 0), boosts3=boosts3)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -392,12 +398,14 @@ def brute_force_strategy(pts, price, is_driver, rules=None, state=None):
                 usedft = 0 if (prev is None or chip == "wildcard") else min(n_in, ft)
                 ft2 = min(rules.max_bank, ft - usedft + rules.free_per_round)
                 v = _chip_pts(np.array([pts[t][e] for e in sorted(team)]), chip).sum()
-                for b in [e for e in team if is_driver[e]]:
+                drv = [e for e in team if is_driver[e]]
+                for b in drv:
                     bp = _chip_pts(np.array([pts[t][b]]), chip)[0]
-                    r = v + (2.0 if chip == "3x_booster" else 1.0) * bp - pen
-                    W2 = W + (sum(price[t + 1][e] - price[t][e] for e in team) if t + 1 < T else 0)
-                    rec(t + 1, team, W2, ft2, used | ({chip} if chip else set()),
-                        seq + [(r, team, b, chip)])
+                    for b3 in ([e for e in drv if e != b] if chip == "3x_booster" else [None]):
+                        r = v + bp - pen + (2.0 * pts[t][b3] if b3 is not None else 0.0)
+                        W2 = W + (sum(price[t + 1][e] - price[t][e] for e in team) if t + 1 < T else 0)
+                        rec(t + 1, team, W2, ft2, used | ({chip} if chip else set()),
+                            seq + [(r, team, b, chip, b3)])
 
     rec(0, state.prev_team, state.wealth if state.wealth is not None else rules.budget,
         state.free_transfers, set(), [])

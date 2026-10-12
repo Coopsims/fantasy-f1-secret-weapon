@@ -91,7 +91,8 @@ def play(fc_by_g, discount=0.6, rules=None, chip_reserve=0.0):
         plan = solve_strategy(pts, path, FP.IS_DRIVER, rules, state, discount ** np.arange(Hh), time_limit=60, mip_rel_gap=1e-6,
                               chip_cost=cc)
         team, boost, chip = plan.teams[0], plan.boosts[0], plan.chips[0]
-        r, per, pen, trs, ok = evaluate_plan([team], [boost], [chip], act[g][None, :], price[g][None, :], FP.IS_DRIVER, rules, state)
+        r, per, pen, trs, ok = evaluate_plan([team], [boost], [chip], act[g][None, :], price[g][None, :], FP.IS_DRIVER, rules, state,
+                                             plan_boosts3=plan.boosts3[:1])
         assert ok, g
         total += r
         log.append({"gameday": g, "points": per[0], "chip": chip, "transfers": trs[0], "penalty": pen[0],
