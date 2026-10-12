@@ -1,4 +1,4 @@
 forecaster,season_points,share_of_optimum,first_half,second_half
-provisional_et_xgb,3971.0,0.6916913429716077,1773.0,2198.0
 sim+ewma0.4,3955.0,0.6889043720606166,1728.0,2227.0
+provisional_et_xgb,3953.0,0.6885560006967427,1773.0,2180.0
 sim,3330.0,0.5800383208500262,1426.0,1904.0

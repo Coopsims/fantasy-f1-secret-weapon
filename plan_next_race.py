@@ -31,6 +31,7 @@ def main():
     ap.add_argument("--avoid", nargs="*", default=[])
     ap.add_argument("--spec", default=FP.SPEC_FILE)
     ap.add_argument("--refresh", action="store_true")
+    ap.add_argument("--sharp", action="store_true", help="plan on the raw forecast model, without the planning shrinkage")
     a = ap.parse_args()
 
     import mlflow_experiments as X
@@ -38,6 +39,8 @@ def main():
     rounds = FP.upcoming_rounds(res, a.horizon)
     names = [next(r["name"] for r in FP.RACE_CALENDAR_2026 if r["round"] == x) for x in rounds]
     specs, c_sim, spec_name = load_specs(a.spec)
+    if a.sharp:
+        c_sim = (c_sim[0], c_sim[1], None)
     pts = forecasts(rounds, specs, c_sim, a.refresh)
     price_now = FP.current_prices(overrides=dict(p.split("=", 1) for p in a.price))
     path = FP.project_prices(price_now, pts, FP.official_tables())

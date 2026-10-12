@@ -59,3 +59,20 @@ def test_walk_forward_trains_only_on_the_past():
     p2 = panel.copy(); p2.loc[p2["t"] >= ts[0], "total"] = 999.0             # poison the target weekend and later
     b = zoo.walk_forward(p2, feats, "ridge", None, ts[:1], min_rows=50).drivers
     assert np.allclose(a["pred"], b["pred"])
+
+
+def test_team_affinity_never_sees_the_same_weekend():
+    import pandas as pd
+    from experiments.zoo import _sim_affinity
+    locs = ["A", "B"] * 6
+    rows = []
+    for t in range(12):
+        for d in ("x", "y"):                                     # two drivers of one team, same weekend
+            rows.append({"t": t, "driver": d, "team": "T", "location": locs[t], "_tz": float(t)})
+    df = pd.DataFrame(rows)
+    S = pd.DataFrame([[1.0, 0.2], [0.2, 1.0]], index=["A", "B"], columns=["A", "B"])
+    base = _sim_affinity(df, S, "team", "_tz")
+    df2 = df.copy(); df2.loc[df2["t"] == 11, "_tz"] = 999.0       # change only the last weekend's outcome
+    after = _sim_affinity(df2, S, "team", "_tz")
+    last = df["t"].values == 11
+    assert np.allclose(base[last], after[last], equal_nan=True)

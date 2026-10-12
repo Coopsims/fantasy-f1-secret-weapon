@@ -126,7 +126,7 @@ def load_spec(path=SPEC_FILE):
 
 
 def forecast_remaining(res, truth, specs, rounds, panel_hist, full=None, pdata=None, tracks=None, sim=None,
-                       op=None, c_sim=0.5, verbose=True, bonus_alpha=0.3):
+                       op=None, c_sim=0.5, verbose=True, bonus_alpha=0.3, planning_blend=None):
     """
     Expected points (H x E) for the given future rounds under the blended spec(s):
       drivers      = mean over specs of [(1 - b - c) * tree + b * simulator + c * EWMA(official)]  (b from the spec's schedule)
@@ -165,6 +165,16 @@ def forecast_remaining(res, truth, specs, rounds, panel_hist, full=None, pdata=N
         for j, team in enumerate(TEAMS):
             derived = sum(drv[k][i] for i, d in enumerate(DRIVERS) if GRID_2026[d] == team) + bonus.get(team, 0.0)
             out[k, len(DRIVERS) + j] = c_sim * sim[r][len(DRIVERS) + j] + (1 - c_sim) * derived
+    if planning_blend:
+        # Shrink for DECISIONS: the optimiser chases the biggest predicted edges, so noisy differences get over-acted
+        # on; mixing in the simulator and recent official form (all 33 assets) played the 2026 season best (4151 vs
+        # 3953 for the model alone; in-sample, one season) at a small cost in RMSE (+0.16, CI incl. 0).
+        pb = planning_blend
+        ew = ewma_official(op, pb.get("ewma_alpha", 0.2)).reindex(ENTITIES) if len(op) else pd.Series(np.nan, index=ENTITIES)
+        for k, r in enumerate(rounds):
+            e = ew.values.astype(float)
+            e = np.where(np.isnan(e), sim[r], e)
+            out[k] = pb["w_model"] * out[k] + pb["w_sim"] * sim[r] + pb["w_ewma"] * e
     return out
 
 

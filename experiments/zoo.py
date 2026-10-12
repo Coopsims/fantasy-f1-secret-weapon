@@ -119,10 +119,11 @@ def _affinity(panel, speed, key, value, bandwidth=12.0, half_life=25.0):
     tt = panel["t"].values
     for k, idx in panel.groupby(key).indices.items():
         ts, vs = tt[idx], panel[value].values[idx]
-        order = np.argsort(ts)
+        order = np.argsort(ts, kind="stable")
         for jj, j in enumerate(order):
             t = ts[j]
             past = order[:jj]
+            past = past[ts[past] < t]               # strictly earlier weekends: a team has 2 rows per weekend
             if len(past) < 5 or pd.isna(sp.get(t)):
                 continue
             s_past = np.array([sp.get(ts[p], np.nan) for p in past])
@@ -142,9 +143,10 @@ def _sim_affinity(df, S, key, value, half_life=25.0, groups=None):
     out = np.full(len(df), np.nan)
     tt, loc, val = df["t"].values, df["location"].values, df[value].values
     for _, idx in df.groupby(key).indices.items():
-        order = idx[np.argsort(tt[idx])]
+        order = idx[np.argsort(tt[idx], kind="stable")]
         for jj in range(5, len(order)):
             j, past = order[jj], order[:jj]
+            past = past[tt[past] < tt[j]]           # strictly earlier weekends (teammate's row of the same weekend excluded)
             if loc[j] not in S.index:
                 continue
             ok = ~np.isnan(val[past]) & np.isin(loc[past], S.index)

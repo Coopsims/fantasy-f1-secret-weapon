@@ -69,7 +69,7 @@ def _forecast_specs(rt, tt, specs, rounds, panel_hist, full, pdata, tracks, sim,
                                  c_sim=c_sim, bonus_alpha=bonus_alpha)
 
 
-def play(fc_by_g, discount=0.6, rules=None):
+def play(fc_by_g, discount=0.6, rules=None, chip_reserve=0.0):
     """Sequential play on official points and prices with given forecasts {g: (rounds, H x 33)}."""
     import f1_planner as FP
     from f1_strategy import Rules, State, solve_strategy, evaluate_plan
@@ -87,7 +87,9 @@ def play(fc_by_g, discount=0.6, rules=None):
         Hh = min(len(pts), G - g + 1)
         pts = pts[:Hh]
         path = np.array([price[g]] * Hh)                       # future prices unknown: hold flat (play-policy default)
-        plan = solve_strategy(pts, path, FP.IS_DRIVER, rules, state, discount ** np.arange(Hh), time_limit=60, mip_rel_gap=1e-6)
+        cc = {c: chip_reserve for c in rules.chips} if chip_reserve else None    # value of keeping a chip for later
+        plan = solve_strategy(pts, path, FP.IS_DRIVER, rules, state, discount ** np.arange(Hh), time_limit=60, mip_rel_gap=1e-6,
+                              chip_cost=cc)
         team, boost, chip = plan.teams[0], plan.boosts[0], plan.chips[0]
         r, per, pen, trs, ok = evaluate_plan([team], [boost], [chip], act[g][None, :], price[g][None, :], FP.IS_DRIVER, rules, state)
         assert ok, g

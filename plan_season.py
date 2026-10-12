@@ -37,8 +37,8 @@ DEFAULT_SPEC = {"family": "xgb", "hp": {"n_estimators": 618, "max_depth": 1, "le
 def load_specs(path):
     if path and os.path.exists(path):
         d = FP.load_spec(path)
-        return d["specs"], (d.get("c_sim", 0.5), d.get("bonus_alpha", 0.3)), d.get("name", os.path.basename(path))
-    return [DEFAULT_SPEC], (0.5, 0.3), "built-in default (no results/s26_final_spec.json yet)"
+        return d["specs"], (d.get("c_sim", 0.5), d.get("bonus_alpha", 0.3), d.get("planning_blend")), d.get("name", os.path.basename(path))
+    return [DEFAULT_SPEC], (0.5, 0.3, None), "built-in default (no results/s26_final_spec.json yet)"
 
 
 def forecasts(rounds, specs, c_sim, refresh=False):
@@ -68,7 +68,7 @@ def _forecasts_all(rounds, specs, c_sim, refresh=False):
         zoo.build_panel(res, truth, full=full, pdata=pdata, tracks=tracks).to_pickle(panel_pkl)
     D = s26.prepare(panel_pkl, os.path.join("results", "cache", f"s26_{X.data_fingerprint(res)}.pkl"))
     pts = FP.forecast_remaining(res, truth, specs, rounds, D["panel"], full=full, pdata=pdata, tracks=tracks,
-                                c_sim=c_sim[0], bonus_alpha=c_sim[1])
+                                c_sim=c_sim[0], bonus_alpha=c_sim[1], planning_blend=c_sim[2])
     pd.to_pickle(pts, path)
     return pts
 
@@ -88,6 +88,7 @@ def main():
     ap.add_argument("--avoid", nargs="*", default=[], help="assets never to pick")
     ap.add_argument("--spec", default=FP.SPEC_FILE)
     ap.add_argument("--refresh", action="store_true", help="recompute forecasts (ignore the cache)")
+    ap.add_argument("--sharp", action="store_true", help="plan on the raw forecast model, without the planning shrinkage")
     ap.add_argument("--csv", default=None, help="write the plan to this CSV")
     a = ap.parse_args()
     if a.team and len(a.team) != 7:
@@ -98,6 +99,8 @@ def main():
     rounds = FP.upcoming_rounds(res, a.rounds)
     names = [next(r["name"] for r in FP.RACE_CALENDAR_2026 if r["round"] == x) for x in rounds]
     specs, c_sim, spec_name = load_specs(a.spec)
+    if a.sharp:
+        c_sim = (c_sim[0], c_sim[1], None)
     pts = forecasts(rounds, specs, c_sim, a.refresh)
     overrides = dict(p.split("=", 1) for p in a.price)
     price_now = FP.current_prices(overrides=overrides)

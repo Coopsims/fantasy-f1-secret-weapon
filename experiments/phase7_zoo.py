@@ -63,7 +63,7 @@ if __name__ == "__main__":
     import mlflow.sklearn
     jobs = [(f, s, sp, ts[sp]) for f in FAMILIES for s in FSETS for sp in ("dev", "val")]
     with mlflow.start_run(run_name=f"phase7a-zoo {datetime.date.today()}"):
-        mlflow.set_tags({"phase": "7a-zoo", "data_version": X.DATA_VERSION, "git_sha": X.git_sha(),
+        mlflow.set_tags({"phase": os.environ.get("PHASE_TAG", "7a-zoo"), "data_version": X.DATA_VERSION, "git_sha": X.git_sha(),
                          "families": ",".join(FAMILIES), "feature_sets": ",".join(FSETS), "primary_metric": "rmse"})
         rows, ref_pw = [], {}
         for split in ("dev", "val"):

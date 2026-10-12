@@ -48,3 +48,16 @@ def test_keep_and_avoid_constraints():
     for t in p.teams:
         names = {FP.ENTITIES[e] for e in t}
         assert keep in names and avoid not in names
+
+
+def test_planning_blend_weights_are_applied_to_all_assets():
+    import pandas as pd
+    E = len(FP.ENTITIES)
+    sim = {20: np.full(E, 10.0)}
+    op = pd.DataFrame({"gameday": [1] * E, "name": FP.ENTITIES, "points": [30.0] * E, "type": ["driver"] * E, "round": [1] * E})
+    ew = FP.ewma_official(op, 0.2)
+    assert np.allclose(ew.reindex(FP.ENTITIES).values, 30.0)
+    out = np.full((1, E), 20.0)
+    pb = {"w_model": 0.5, "w_sim": 0.3, "w_ewma": 0.2}
+    blended = pb["w_model"] * out[0] + pb["w_sim"] * sim[20] + pb["w_ewma"] * ew.values
+    assert np.allclose(blended, 0.5 * 20 + 0.3 * 10 + 0.2 * 30)
