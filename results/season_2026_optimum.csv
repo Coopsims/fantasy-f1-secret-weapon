@@ -1,0 +1,18 @@
+round,team,boost,chip,transfers,penalty,points
+1,"['Verstappen', 'Bearman', 'Ocon', 'Bortoleto', 'Lindblad', 'Mercedes', 'Racing Bulls']",Verstappen,,0,0.0,239.0
+2,"['Antonelli', 'Colapinto', 'Bearman', 'Lawson', 'Perez', 'Ferrari', 'Mercedes']",Antonelli,,5,20.0,412.0
+3,"['Antonelli', 'Ocon', 'Hulkenberg', 'Lawson', 'Perez', 'Ferrari', 'Mercedes']",Antonelli,,2,0.0,310.0
+6,"['Antonelli', 'Ocon', 'Bortoleto', 'Perez', 'Bottas', 'McLaren', 'Mercedes']",Antonelli,,3,10.0,318.0
+7,"['Antonelli', 'Hamilton', 'Colapinto', 'Lawson', 'Bottas', 'Alpine', 'Mercedes']",Antonelli,wildcard,4,0.0,331.0
+8,"['Hadjar', 'Antonelli', 'Hamilton', 'Lawson', 'Lindblad', 'Mercedes', 'Racing Bulls']",Antonelli,,3,0.0,283.0
+9,"['Hadjar', 'Hamilton', 'Colapinto', 'Lawson', 'Lindblad', 'Ferrari', 'Red Bull Racing']",Hamilton,,3,10.0,262.0
+10,"['Hadjar', 'Antonelli', 'Colapinto', 'Lawson', 'Lindblad', 'Ferrari', 'Mercedes']",Antonelli,,2,0.0,221.0
+11,"['Hadjar', 'Leclerc', 'Colapinto', 'Lawson', 'Lindblad', 'Ferrari', 'Mercedes']",Leclerc,,1,0.0,310.0
+12,"['Hadjar', 'Antonelli', 'Colapinto', 'Lawson', 'Lindblad', 'Ferrari', 'Red Bull Racing']",Antonelli,,2,0.0,246.0
+13,"['Hadjar', 'Norris', 'Hulkenberg', 'Lawson', 'Lindblad', 'Ferrari', 'Mercedes']",Norris,,3,0.0,229.0
+14,"['Norris', 'Alonso', 'Hulkenberg', 'Lawson', 'Lindblad', 'McLaren', 'Mercedes']",Norris,no_negative,2,0.0,299.0
+15,"['Antonelli', 'Colapinto', 'Hulkenberg', 'Lawson', 'Lindblad', 'McLaren', 'Mercedes']",Antonelli,3x_booster,2,0.0,422.0
+16,"['Antonelli', 'Colapinto', 'Hulkenberg', 'Lawson', 'Lindblad', 'Mercedes', 'Red Bull Racing']",Antonelli,,1,0.0,241.0
+17,"['Hadjar', 'Russell', 'Hulkenberg', 'Lawson', 'Lindblad', 'Mercedes', 'Red Bull Racing']",Russell,,2,0.0,300.0
+18,"['Verstappen', 'Hadjar', 'Alonso', 'Hulkenberg', 'Lawson', 'Ferrari', 'Red Bull Racing']",Verstappen,,3,0.0,319.0
+19,"['Verstappen', 'Leclerc', 'Bearman', 'Hulkenberg', 'Lawson', 'Ferrari', 'Red Bull Racing']",Leclerc,,2,0.0,341.0

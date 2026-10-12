@@ -1,0 +1,18 @@
+gameday,points,chip,transfers,penalty,team,boost
+1,118.0,3x_booster,0,0.0,"Verstappen, Alonso, Stroll, Ocon, Lindblad, Aston Martin, McLaren",Verstappen
+2,273.0,wildcard,5,0.0,"Verstappen, Hadjar, Bearman, Lindblad, Perez, Mercedes, Racing Bulls",Verstappen
+3,274.0,no_negative,4,10.0,"Antonelli, Hulkenberg, Lindblad, Perez, Bottas, Ferrari, Mercedes",Antonelli
+4,227.0,,1,0.0,"Antonelli, Hulkenberg, Lawson, Perez, Bottas, Ferrari, Mercedes",Antonelli
+5,293.0,,2,0.0,"Antonelli, Bortoleto, Lawson, Lindblad, Bottas, Ferrari, Mercedes",Antonelli
+6,254.0,,1,0.0,"Antonelli, Hulkenberg, Bortoleto, Lawson, Lindblad, Ferrari, Mercedes",Antonelli
+7,100.0,,0,0.0,"Antonelli, Hulkenberg, Bortoleto, Lawson, Lindblad, Ferrari, Mercedes",Antonelli
+8,234.0,,0,0.0,"Antonelli, Hulkenberg, Bortoleto, Lawson, Lindblad, Ferrari, Mercedes",Antonelli
+9,289.0,,3,0.0,"Hadjar, Hamilton, Hulkenberg, Lindblad, Bottas, Ferrari, Mercedes",Hamilton
+10,237.0,,1,0.0,"Hadjar, Antonelli, Hulkenberg, Lindblad, Bottas, Ferrari, Mercedes",Antonelli
+11,219.0,,3,0.0,"Hamilton, Ocon, Hulkenberg, Bortoleto, Lindblad, Ferrari, Mercedes",Hamilton
+12,236.0,,2,0.0,"Antonelli, Bearman, Hulkenberg, Bortoleto, Lindblad, Ferrari, Mercedes",Antonelli
+13,356.0,,2,0.0,"Antonelli, Alonso, Hulkenberg, Bortoleto, Lawson, Ferrari, Mercedes",Antonelli
+14,159.0,,2,0.0,"Hadjar, Antonelli, Hulkenberg, Bortoleto, Perez, Ferrari, Mercedes",Antonelli
+15,178.0,,2,0.0,"Antonelli, Colapinto, Albon, Hulkenberg, Bortoleto, Ferrari, Mercedes",Antonelli
+16,219.0,,2,0.0,"Antonelli, Bearman, Ocon, Hulkenberg, Bortoleto, Ferrari, Mercedes",Antonelli
+17,287.0,,1,0.0,"Antonelli, Bearman, Ocon, Hulkenberg, Lawson, Ferrari, Mercedes",Antonelli

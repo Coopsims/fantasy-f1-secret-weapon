@@ -1,0 +1,5 @@
+forecaster,season_points,first_half,second_half,chips,share_of_optimum
+planning blend (0.5 model + 0.5 sim+ewma0.4),4143.0,1903.0,2240.0,"[[1, '3x_booster'], [3, 'wildcard'], [6, 'no_negative']]",0.7170301142263759
+sim+ewma0.4,4081.0,1854.0,2227.0,"[[1, '3x_booster'], [2, 'wildcard'], [3, 'no_negative']]",0.7062997577016269
+provisional_et_xgb,4035.0,1876.0,2159.0,"[[1, '3x_booster'], [2, 'wildcard'], [3, 'no_negative']]",0.6983385254413291
+sim,3456.0,1552.0,1904.0,"[[1, '3x_booster'], [3, 'wildcard'], [6, 'no_negative']]",0.5981308411214953

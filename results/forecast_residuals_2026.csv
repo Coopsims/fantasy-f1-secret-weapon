@@ -1,0 +1,555 @@
+gameday,asset,type,fc,official,residual
+1,Alpine,constructor,10.88,22.0,11.12
+1,Aston Martin,constructor,11.46,-38.0,-49.46
+1,Audi,constructor,6.29,0.0,-6.29
+1,Cadillac,constructor,3.61,-13.0,-16.61
+1,Ferrari,constructor,38.4,69.0,30.6
+1,Haas F1 Team,constructor,9.86,34.0,24.14
+1,McLaren,constructor,49.28,19.0,-30.28
+1,Mercedes,constructor,50.21,96.0,45.79
+1,Racing Bulls,constructor,8.9,35.0,26.1
+1,Red Bull Racing,constructor,46.35,42.0,-4.35
+1,Williams,constructor,10.85,20.0,9.15
+1,Albon,driver,3.41,8.0,4.59
+1,Alonso,driver,4.48,-14.0,-18.48
+1,Antonelli,driver,17.02,32.0,14.98
+1,Bearman,driver,3.48,20.0,16.52
+1,Bortoleto,driver,0.89,13.0,12.11
+1,Bottas,driver,-0.06,-16.0,-15.94
+1,Colapinto,driver,2.83,6.0,3.17
+1,Gasly,driver,4.04,11.0,6.96
+1,Hadjar,driver,8.79,-8.0,-16.79
+1,Hamilton,driver,13.57,25.0,11.43
+1,Hulkenberg,driver,2.4,-20.0,-22.4
+1,Lawson,driver,3.1,5.0,1.9
+1,Leclerc,driver,16.17,29.0,12.83
+1,Norris,driver,23.45,21.0,-2.45
+1,Ocon,driver,5.89,9.0,3.11
+1,Perez,driver,0.86,4.0,3.14
+1,Piastri,driver,23.46,-14.0,-37.46
+1,Russell,driver,24.48,39.0,14.52
+1,Sainz,driver,5.27,9.0,3.73
+1,Stroll,driver,4.89,-23.0,-27.89
+1,Verstappen,driver,32.23,50.0,17.77
+2,Alpine,constructor,21.53,45.0,23.47
+2,Aston Martin,constructor,0.14,-20.0,-20.14
+2,Audi,constructor,8.16,-4.0,-12.16
+2,Cadillac,constructor,3.51,22.0,18.49
+2,Ferrari,constructor,66.54,119.0,52.46
+2,Haas F1 Team,constructor,26.73,65.0,38.27
+2,McLaren,constructor,40.99,-7.0,-47.99
+2,Mercedes,constructor,90.9,115.0,24.1
+2,Racing Bulls,constructor,25.51,50.0,24.49
+2,Red Bull Racing,constructor,60.42,45.0,-15.42
+2,Williams,constructor,18.92,22.0,3.08
+2,Albon,driver,7.24,-7.0,-14.24
+2,Alonso,driver,-0.5,-7.0,-6.5
+2,Antonelli,driver,30.73,68.0,37.27
+2,Bearman,driver,12.64,34.0,21.36
+2,Bortoleto,driver,5.38,-14.0,-19.38
+2,Bottas,driver,-1.45,3.0,4.45
+2,Colapinto,driver,7.61,18.0,10.39
+2,Gasly,driver,8.6,20.0,11.4
+2,Hadjar,driver,14.36,19.0,4.64
+2,Hamilton,driver,24.13,48.0,23.87
+2,Hulkenberg,driver,-2.91,7.0,9.91
+2,Lawson,driver,3.45,35.0,31.55
+2,Leclerc,driver,25.01,51.0,25.99
+2,Lindblad,driver,7.39,7.0,-0.39
+2,Norris,driver,22.01,-10.0,-32.01
+2,Ocon,driver,8.82,24.0,15.18
+2,Perez,driver,4.62,20.0,15.38
+2,Piastri,driver,7.92,-7.0,-14.92
+2,Russell,driver,37.21,45.0,7.79
+2,Sainz,driver,7.0,28.0,21.0
+2,Stroll,driver,-0.36,-14.0,-13.64
+2,Verstappen,driver,40.73,14.0,-26.73
+3,Alpine,constructor,18.63,25.0,6.37
+3,Aston Martin,constructor,-7.87,-12.0,-4.13
+3,Audi,constructor,7.44,23.0,15.56
+3,Cadillac,constructor,1.94,5.0,3.06
+3,Ferrari,constructor,62.69,75.0,12.31
+3,Haas F1 Team,constructor,23.54,-4.0,-27.54
+3,McLaren,constructor,36.21,72.0,35.79
+3,Mercedes,constructor,82.09,92.0,9.91
+3,Racing Bulls,constructor,23.76,18.0,-5.76
+3,Red Bull Racing,constructor,38.92,25.0,-13.92
+3,Williams,constructor,14.89,9.0,-5.89
+3,Albon,driver,3.75,-1.0,-4.75
+3,Alonso,driver,-3.49,4.0,7.49
+3,Antonelli,driver,30.41,50.0,19.59
+3,Bearman,driver,10.81,-14.0,-24.81
+3,Bortoleto,driver,2.26,3.0,0.74
+3,Bottas,driver,-1.81,2.0,3.81
+3,Colapinto,driver,4.76,4.0,-0.76
+3,Gasly,driver,7.81,14.0,6.19
+3,Hadjar,driver,6.22,5.0,-1.22
+3,Hamilton,driver,20.44,19.0,-1.44
+3,Hulkenberg,driver,-1.71,10.0,11.71
+3,Lawson,driver,7.06,10.0,2.94
+3,Leclerc,driver,24.39,31.0,6.61
+3,Lindblad,driver,6.35,1.0,-5.35
+3,Norris,driver,15.59,24.0,8.41
+3,Ocon,driver,6.83,9.0,2.17
+3,Perez,driver,3.71,4.0,0.29
+3,Piastri,driver,6.93,43.0,36.07
+3,Russell,driver,32.11,27.0,-5.11
+3,Sainz,driver,7.41,4.0,-3.41
+3,Stroll,driver,-5.28,-17.0,-11.72
+3,Verstappen,driver,26.01,13.0,-13.01
+4,Alpine,constructor,23.76,17.0,-6.76
+4,Aston Martin,constructor,-0.72,38.0,38.72
+4,Audi,constructor,11.3,-27.0,-38.3
+4,Cadillac,constructor,7.24,24.0,16.76
+4,Ferrari,constructor,70.77,57.0,-13.77
+4,Haas F1 Team,constructor,23.71,23.0,-0.71
+4,McLaren,constructor,46.84,110.0,63.16
+4,Mercedes,constructor,86.88,104.0,17.12
+4,Racing Bulls,constructor,29.95,2.0,-27.95
+4,Red Bull Racing,constructor,40.51,31.0,-9.51
+4,Williams,constructor,15.9,42.0,26.1
+4,Albon,driver,4.66,20.0,15.34
+4,Alonso,driver,0.86,20.0,19.14
+4,Antonelli,driver,35.15,42.0,6.85
+4,Bearman,driver,9.8,6.0,-3.8
+4,Bortoleto,driver,3.7,7.0,3.3
+4,Bottas,driver,0.72,4.0,3.28
+4,Colapinto,driver,7.49,13.0,5.51
+4,Gasly,driver,10.04,-8.0,-18.04
+4,Hadjar,driver,6.99,-16.0,-22.99
+4,Hamilton,driver,23.5,20.0,-3.5
+4,Hulkenberg,driver,0.29,-29.0,-29.29
+4,Lawson,driver,9.58,-12.0,-21.58
+4,Leclerc,driver,28.45,27.0,-1.45
+4,Lindblad,driver,8.2,-4.0,-12.2
+4,Norris,driver,19.88,54.0,34.12
+4,Ocon,driver,8.97,14.0,5.03
+4,Perez,driver,6.72,19.0,12.28
+4,Piastri,driver,14.57,41.0,26.43
+4,Russell,driver,33.19,42.0,8.81
+4,Sainz,driver,7.19,19.0,11.81
+4,Stroll,driver,-2.17,17.0,19.17
+4,Verstappen,driver,26.68,52.0,25.32
+5,Alpine,constructor,21.0,46.0,25.0
+5,Aston Martin,constructor,1.36,-14.0,-15.36
+5,Audi,constructor,6.23,11.0,4.77
+5,Cadillac,constructor,6.35,2.0,-4.35
+5,Ferrari,constructor,65.15,69.0,3.85
+5,Haas F1 Team,constructor,21.33,19.0,-2.33
+5,McLaren,constructor,54.08,33.0,-21.08
+5,Mercedes,constructor,88.75,76.0,-12.75
+5,Racing Bulls,constructor,23.12,22.0,-1.12
+5,Red Bull Racing,constructor,34.69,44.0,9.31
+5,Williams,constructor,16.8,6.0,-10.8
+5,Albon,driver,6.19,-8.0,-14.19
+5,Alonso,driver,2.41,-26.0,-28.41
+5,Antonelli,driver,35.78,62.0,26.22
+5,Bearman,driver,9.18,10.0,0.82
+5,Bortoleto,driver,3.48,5.0,1.52
+5,Bottas,driver,0.75,12.0,11.25
+5,Colapinto,driver,6.79,25.0,18.21
+5,Gasly,driver,8.05,16.0,7.95
+5,Hadjar,driver,4.38,6.0,1.62
+5,Hamilton,driver,24.54,42.0,17.46
+5,Hulkenberg,driver,-1.22,1.0,2.22
+5,Lawson,driver,6.92,23.0,16.08
+5,Leclerc,driver,26.93,27.0,0.07
+5,Lindblad,driver,6.05,-16.0,-22.05
+5,Norris,driver,24.8,6.0,-18.8
+5,Ocon,driver,8.46,8.0,-0.46
+5,Perez,driver,6.36,-11.0,-17.36
+5,Piastri,driver,18.89,12.0,-6.89
+5,Russell,driver,36.7,4.0,-32.7
+5,Sainz,driver,7.84,11.0,3.16
+5,Stroll,driver,-0.8,11.0,11.8
+5,Verstappen,driver,27.09,26.0,-1.09
+6,Alpine,constructor,18.63,17.0,-1.63
+6,Aston Martin,constructor,-7.93,-4.0,3.93
+6,Audi,constructor,5.63,21.0,15.37
+6,Cadillac,constructor,-0.74,-13.0,-12.26
+6,Ferrari,constructor,55.57,29.0,-26.57
+6,Haas F1 Team,constructor,15.01,-8.0,-23.01
+6,McLaren,constructor,41.09,17.0,-24.09
+6,Mercedes,constructor,73.27,70.0,-3.27
+6,Racing Bulls,constructor,17.99,42.0,24.01
+6,Red Bull Racing,constructor,30.98,22.0,-8.98
+6,Williams,constructor,11.09,9.0,-2.09
+6,Albon,driver,2.34,9.0,6.66
+6,Alonso,driver,-4.26,15.0,19.26
+6,Antonelli,driver,31.94,55.0,23.06
+6,Bearman,driver,5.99,-19.0,-24.99
+6,Bortoleto,driver,2.75,5.0,2.25
+6,Bottas,driver,-1.26,-20.0,-18.74
+6,Colapinto,driver,6.25,0.0,-6.25
+6,Gasly,driver,6.57,12.0,5.43
+6,Hadjar,driver,3.7,23.0,19.3
+6,Hamilton,driver,20.71,27.0,6.29
+6,Hulkenberg,driver,-1.29,3.0,4.29
+6,Lawson,driver,4.6,16.0,11.4
+6,Leclerc,driver,23.46,-13.0,-36.46
+6,Lindblad,driver,2.99,21.0,18.01
+6,Norris,driver,16.46,-17.0,-33.46
+6,Ocon,driver,5.81,12.0,6.19
+6,Perez,driver,1.04,8.0,6.96
+6,Piastri,driver,13.71,19.0,5.29
+6,Russell,driver,26.47,0.0,-26.47
+6,Sainz,driver,6.08,-3.0,-9.08
+6,Stroll,driver,-3.64,-20.0,-16.36
+6,Verstappen,driver,22.61,-11.0,-33.61
+7,Alpine,constructor,20.19,31.0,10.81
+7,Aston Martin,constructor,-5.32,-36.0,-30.68
+7,Audi,constructor,10.63,2.0,-8.63
+7,Cadillac,constructor,-0.29,-9.0,-8.71
+7,Ferrari,constructor,58.9,58.0,-0.9
+7,Haas F1 Team,constructor,15.08,16.0,0.92
+7,McLaren,constructor,48.74,67.0,18.26
+7,Mercedes,constructor,77.08,39.0,-38.08
+7,Racing Bulls,constructor,25.51,26.0,0.49
+7,Red Bull Racing,constructor,38.94,59.0,20.06
+7,Williams,constructor,11.58,1.0,-10.58
+7,Albon,driver,2.7,-16.0,-18.7
+7,Alonso,driver,-1.58,-17.0,-15.42
+7,Antonelli,driver,34.28,-4.0,-38.28
+7,Bearman,driver,4.78,7.0,2.22
+7,Bortoleto,driver,3.56,7.0,3.44
+7,Bottas,driver,-2.51,-18.0,-15.49
+7,Colapinto,driver,6.25,9.0,2.75
+7,Gasly,driver,6.95,17.0,10.05
+7,Hadjar,driver,9.69,22.0,12.31
+7,Hamilton,driver,21.35,56.0,34.65
+7,Hulkenberg,driver,-0.13,-15.0,-14.87
+7,Lawson,driver,7.5,9.0,1.5
+7,Leclerc,driver,21.28,0.0,-21.28
+7,Lindblad,driver,5.48,10.0,4.52
+7,Norris,driver,17.94,23.0,5.06
+7,Ocon,driver,6.64,8.0,1.36
+7,Perez,driver,1.78,8.0,6.22
+7,Piastri,driver,16.34,19.0,2.66
+7,Russell,driver,25.22,28.0,2.78
+7,Sainz,driver,4.53,11.0,6.47
+7,Stroll,driver,-5.12,-20.0,-14.88
+7,Verstappen,driver,20.27,22.0,1.73
+8,Alpine,constructor,21.27,21.0,-0.27
+8,Aston Martin,constructor,-11.21,-11.0,0.21
+8,Audi,constructor,8.86,15.0,6.14
+8,Cadillac,constructor,-1.35,-35.0,-33.65
+8,Ferrari,constructor,54.1,56.0,1.9
+8,Haas F1 Team,constructor,14.84,13.0,-1.84
+8,McLaren,constructor,47.73,49.0,1.27
+8,Mercedes,constructor,68.23,85.0,16.77
+8,Racing Bulls,constructor,22.57,38.0,15.43
+8,Red Bull Racing,constructor,38.93,68.0,29.07
+8,Williams,constructor,10.96,-6.0,-16.96
+8,Albon,driver,2.42,7.0,4.58
+8,Alonso,driver,-4.06,7.0,11.06
+8,Antonelli,driver,29.2,35.0,5.8
+8,Bearman,driver,4.98,1.0,-3.98
+8,Bortoleto,driver,3.77,5.0,1.23
+8,Bottas,driver,-3.56,-17.0,-13.44
+8,Colapinto,driver,7.17,10.0,2.83
+8,Gasly,driver,8.79,3.0,-5.79
+8,Hadjar,driver,11.27,15.0,3.73
+8,Hamilton,driver,26.36,27.0,0.64
+8,Hulkenberg,driver,-0.81,5.0,5.81
+8,Lawson,driver,7.55,7.0,-0.55
+8,Leclerc,driver,17.66,9.0,-8.66
+8,Lindblad,driver,6.5,6.0,-0.5
+8,Norris,driver,17.82,11.0,-6.82
+8,Ocon,driver,7.65,7.0,-0.65
+8,Perez,driver,2.55,-17.0,-19.55
+8,Piastri,driver,16.92,23.0,6.08
+8,Russell,driver,24.68,35.0,10.32
+8,Sainz,driver,5.4,-17.0,-22.4
+8,Stroll,driver,-7.18,-17.0,-9.82
+8,Verstappen,driver,20.65,43.0,22.35
+9,Alpine,constructor,21.99,53.0,31.01
+9,Aston Martin,constructor,-1.12,16.0,17.12
+9,Audi,constructor,10.92,17.0,6.08
+9,Cadillac,constructor,-0.48,13.0,13.48
+9,Ferrari,constructor,62.59,92.0,29.41
+9,Haas F1 Team,constructor,17.45,33.0,15.55
+9,McLaren,constructor,53.79,72.0,18.21
+9,Mercedes,constructor,71.85,92.0,20.15
+9,Racing Bulls,constructor,27.14,55.0,27.86
+9,Red Bull Racing,constructor,49.4,32.0,-17.4
+9,Williams,constructor,11.62,0.0,-11.62
+9,Albon,driver,3.47,-13.0,-16.47
+9,Alonso,driver,0.81,8.0,7.19
+9,Antonelli,driver,31.61,23.0,-8.61
+9,Bearman,driver,6.48,13.0,6.52
+9,Bortoleto,driver,5.29,16.0,10.71
+9,Bottas,driver,-2.16,5.0,7.16
+9,Colapinto,driver,8.12,27.0,18.88
+9,Gasly,driver,8.31,23.0,14.69
+9,Hadjar,driver,14.02,23.0,8.98
+9,Hamilton,driver,30.85,33.0,2.15
+9,Hulkenberg,driver,0.03,-7.0,-7.03
+9,Lawson,driver,9.19,22.0,12.81
+9,Leclerc,driver,20.33,54.0,33.67
+9,Lindblad,driver,7.42,18.0,10.58
+9,Norris,driver,20.42,38.0,17.58
+9,Ocon,driver,8.4,19.0,10.6
+9,Perez,driver,2.13,7.0,4.87
+9,Piastri,driver,20.39,19.0,-1.39
+9,Russell,driver,26.12,44.0,17.88
+9,Sainz,driver,5.01,8.0,2.99
+9,Stroll,driver,-1.72,7.0,8.72
+9,Verstappen,driver,27.98,-3.0,-30.98
+10,Alpine,constructor,23.94,19.0,-4.94
+10,Aston Martin,constructor,-8.35,-13.0,-4.65
+10,Audi,constructor,11.75,19.0,7.25
+10,Cadillac,constructor,-1.67,-17.0,-15.33
+10,Ferrari,constructor,60.71,71.0,10.29
+10,Haas F1 Team,constructor,16.79,15.0,-1.79
+10,McLaren,constructor,52.3,71.0,18.7
+10,Mercedes,constructor,69.79,42.0,-27.79
+10,Racing Bulls,constructor,29.92,15.0,-14.92
+10,Red Bull Racing,constructor,44.45,79.0,34.55
+10,Williams,constructor,9.06,19.0,9.94
+10,Albon,driver,1.82,3.0,1.18
+10,Alonso,driver,-2.3,5.0,7.3
+10,Antonelli,driver,27.13,38.0,10.87
+10,Bearman,driver,5.27,8.0,2.73
+10,Bortoleto,driver,4.22,8.0,3.78
+10,Bottas,driver,-3.1,1.0,4.1
+10,Colapinto,driver,8.98,8.0,-0.98
+10,Gasly,driver,8.71,8.0,-0.71
+10,Hadjar,driver,12.71,38.0,25.29
+10,Hamilton,driver,25.06,22.0,-3.06
+10,Hulkenberg,driver,-0.05,4.0,4.05
+10,Lawson,driver,9.16,3.0,-6.16
+10,Leclerc,driver,20.91,39.0,18.09
+10,Lindblad,driver,7.21,5.0,-2.21
+10,Norris,driver,20.06,40.0,19.94
+10,Ocon,driver,8.24,6.0,-2.24
+10,Perez,driver,1.22,-17.0,-18.22
+10,Piastri,driver,16.33,19.0,2.67
+10,Russell,driver,24.41,-11.0,-35.41
+10,Sainz,driver,2.63,10.0,7.37
+10,Stroll,driver,-7.11,-19.0,-11.89
+10,Verstappen,driver,20.86,26.0,5.14
+11,Alpine,constructor,19.73,17.0,-2.73
+11,Aston Martin,constructor,-8.67,36.0,44.67
+11,Audi,constructor,11.22,29.0,17.78
+11,Cadillac,constructor,-8.17,-37.0,-28.83
+11,Ferrari,constructor,57.38,71.0,13.62
+11,Haas F1 Team,constructor,12.49,10.0,-2.49
+11,McLaren,constructor,49.48,38.0,-11.48
+11,Mercedes,constructor,60.81,71.0,10.19
+11,Racing Bulls,constructor,21.89,47.0,25.11
+11,Red Bull Racing,constructor,43.38,59.0,15.62
+11,Williams,constructor,5.57,10.0,4.43
+11,Albon,driver,0.31,4.0,3.69
+11,Alonso,driver,-0.54,10.0,10.54
+11,Antonelli,driver,25.64,28.0,2.36
+11,Bearman,driver,3.89,3.0,-0.89
+11,Bortoleto,driver,4.52,10.0,5.48
+11,Bottas,driver,-5.36,-16.0,-10.64
+11,Colapinto,driver,7.33,3.0,-4.33
+11,Gasly,driver,7.85,6.0,-1.85
+11,Hadjar,driver,14.14,15.0,0.86
+11,Hamilton,driver,24.3,25.0,0.7
+11,Hulkenberg,driver,0.84,9.0,8.16
+11,Lawson,driver,6.55,13.0,6.45
+11,Leclerc,driver,22.94,31.0,8.06
+11,Lindblad,driver,5.44,4.0,-1.44
+11,Norris,driver,21.38,37.0,15.62
+11,Ocon,driver,6.54,4.0,-2.54
+11,Perez,driver,-2.45,-20.0,-17.55
+11,Piastri,driver,15.68,-11.0,-26.68
+11,Russell,driver,20.31,23.0,2.69
+11,Sainz,driver,1.64,2.0,0.36
+11,Stroll,driver,-8.11,15.0,23.11
+11,Verstappen,driver,20.27,39.0,18.73
+12,Alpine,constructor,23.25,19.0,-4.25
+12,Aston Martin,constructor,4.83,18.0,13.17
+12,Audi,constructor,13.73,25.0,11.27
+12,Cadillac,constructor,-3.13,-9.0,-5.87
+12,Ferrari,constructor,59.09,74.0,14.91
+12,Haas F1 Team,constructor,15.66,-20.0,-35.66
+12,McLaren,constructor,54.49,80.0,25.51
+12,Mercedes,constructor,71.7,84.0,12.3
+12,Racing Bulls,constructor,30.08,22.0,-8.08
+12,Red Bull Racing,constructor,38.67,11.0,-27.67
+12,Williams,constructor,7.44,15.0,7.56
+12,Albon,driver,0.08,2.0,1.92
+12,Alonso,driver,3.25,24.0,20.75
+12,Antonelli,driver,29.27,37.0,7.73
+12,Bearman,driver,5.64,-13.0,-18.64
+12,Bortoleto,driver,6.68,5.0,-1.68
+12,Bottas,driver,-2.68,-18.0,-15.32
+12,Colapinto,driver,8.86,6.0,-2.86
+12,Gasly,driver,9.37,8.0,-1.37
+12,Hamilton,driver,24.42,23.0,-1.42
+12,Hulkenberg,driver,0.72,5.0,4.28
+12,Leclerc,driver,23.87,39.0,15.13
+12,Lindblad,driver,7.78,7.0,-0.78
+12,Norris,driver,24.64,57.0,32.36
+12,Ocon,driver,7.84,-10.0,-17.84
+12,Perez,driver,0.04,8.0,7.96
+12,Piastri,driver,17.68,21.0,3.32
+12,Russell,driver,27.22,32.0,4.78
+12,Sainz,driver,3.82,7.0,3.18
+12,Stroll,driver,0.09,-10.0,-10.09
+12,Verstappen,driver,21.84,-13.0,-34.84
+13,Alpine,constructor,18.27,38.0,19.73
+13,Aston Martin,constructor,0.55,-21.0,-21.55
+13,Audi,constructor,14.24,41.0,26.76
+13,Cadillac,constructor,-8.16,16.0,24.16
+13,Ferrari,constructor,58.18,24.0,-34.18
+13,Haas F1 Team,constructor,7.56,17.0,9.44
+13,McLaren,constructor,52.88,77.0,24.12
+13,Mercedes,constructor,68.66,128.0,59.34
+13,Racing Bulls,constructor,26.18,33.0,6.82
+13,Red Bull Racing,constructor,33.69,69.0,35.31
+13,Williams,constructor,8.46,34.0,25.54
+13,Albon,driver,1.77,17.0,15.23
+13,Alonso,driver,3.52,-10.0,-13.52
+13,Antonelli,driver,27.49,93.0,65.51
+13,Bearman,driver,2.06,4.0,1.94
+13,Bortoleto,driver,4.89,14.0,9.11
+13,Bottas,driver,-5.26,4.0,9.26
+13,Colapinto,driver,6.91,14.0,7.09
+13,Gasly,driver,6.4,14.0,7.6
+13,Hamilton,driver,23.43,26.0,2.57
+13,Hulkenberg,driver,1.96,14.0,12.04
+13,Leclerc,driver,23.96,-12.0,-35.96
+13,Lindblad,driver,5.7,11.0,5.3
+13,Norris,driver,26.61,32.0,5.39
+13,Ocon,driver,3.26,10.0,6.74
+13,Perez,driver,-2.52,13.0,15.52
+13,Piastri,driver,15.65,35.0,19.35
+13,Russell,driver,26.34,33.0,6.66
+13,Sainz,driver,2.95,14.0,11.05
+13,Stroll,driver,-4.56,-10.0,-5.44
+13,Verstappen,driver,16.93,37.0,20.07
+14,Alpine,constructor,21.15,24.0,2.85
+14,Aston Martin,constructor,-1.44,-17.0,-15.56
+14,Audi,constructor,16.67,10.0,-6.67
+14,Cadillac,constructor,-7.82,-16.0,-8.18
+14,Ferrari,constructor,52.94,18.0,-34.94
+14,Haas F1 Team,constructor,8.91,11.0,2.09
+14,McLaren,constructor,55.98,44.0,-11.98
+14,Mercedes,constructor,69.5,87.0,17.5
+14,Racing Bulls,constructor,27.03,13.0,-14.03
+14,Red Bull Racing,constructor,39.42,59.0,19.58
+14,Williams,constructor,6.55,-11.0,-17.55
+14,Albon,driver,-0.26,4.0,4.26
+14,Alonso,driver,1.58,4.0,2.42
+14,Antonelli,driver,32.48,35.0,2.52
+14,Bearman,driver,2.33,3.0,0.67
+14,Bortoleto,driver,4.85,0.0,-4.85
+14,Bottas,driver,-6.19,1.0,7.19
+14,Colapinto,driver,7.83,13.0,5.17
+14,Gasly,driver,7.56,4.0,-3.56
+14,Hamilton,driver,21.72,-13.0,-34.72
+14,Hulkenberg,driver,3.93,2.0,-1.93
+14,Leclerc,driver,20.7,19.0,-1.7
+14,Lindblad,driver,6.24,5.0,-1.24
+14,Norris,driver,26.35,23.0,-3.35
+14,Ocon,driver,4.27,5.0,0.73
+14,Perez,driver,-1.16,-18.0,-16.84
+14,Piastri,driver,19.28,9.0,-10.28
+14,Russell,driver,24.37,27.0,2.63
+14,Sainz,driver,3.33,-18.0,-21.33
+14,Stroll,driver,-4.07,-22.0,-17.93
+14,Verstappen,driver,21.14,38.0,16.86
+15,Alpine,constructor,22.45,-18.0,-40.45
+15,Aston Martin,constructor,-5.57,-35.0,-29.43
+15,Audi,constructor,16.43,27.0,10.57
+15,Cadillac,constructor,-7.34,16.0,23.34
+15,Ferrari,constructor,48.31,45.0,-3.31
+15,Haas F1 Team,constructor,11.47,21.0,9.53
+15,McLaren,constructor,48.13,1.0,-47.13
+15,Mercedes,constructor,69.99,88.0,18.01
+15,Racing Bulls,constructor,25.59,23.0,-2.59
+15,Red Bull Racing,constructor,47.4,71.0,23.6
+15,Williams,constructor,8.47,6.0,-2.47
+15,Albon,driver,3.3,-16.0,-19.3
+15,Alonso,driver,0.41,-14.0,-14.41
+15,Antonelli,driver,30.9,28.0,-2.9
+15,Bearman,driver,3.65,6.0,2.35
+15,Bortoleto,driver,5.3,8.0,2.7
+15,Bottas,driver,-5.3,6.0,11.3
+15,Colapinto,driver,9.0,-18.0,-27.0
+15,Gasly,driver,7.73,-15.0,-22.73
+15,Hadjar,driver,12.92,26.0,13.08
+15,Hamilton,driver,19.08,15.0,-4.08
+15,Hulkenberg,driver,3.51,15.0,11.49
+15,Lawson,driver,8.58,3.0,-5.58
+15,Leclerc,driver,18.62,20.0,1.38
+15,Lindblad,driver,6.35,17.0,10.65
+15,Norris,driver,21.98,-11.0,-32.98
+15,Ocon,driver,5.6,12.0,6.4
+15,Perez,driver,-1.73,11.0,12.73
+15,Piastri,driver,15.65,0.0,-15.65
+15,Russell,driver,24.93,45.0,20.07
+15,Sainz,driver,1.95,15.0,13.05
+15,Stroll,driver,-6.91,-20.0,-13.09
+15,Verstappen,driver,22.09,43.0,20.91
+16,Alpine,constructor,17.54,28.0,10.46
+16,Aston Martin,constructor,-4.52,36.0,40.52
+16,Audi,constructor,16.45,38.0,21.55
+16,Cadillac,constructor,-3.96,-12.0,-8.04
+16,Ferrari,constructor,48.04,80.0,31.96
+16,Haas F1 Team,constructor,13.16,20.0,6.84
+16,McLaren,constructor,42.19,57.0,14.81
+16,Mercedes,constructor,69.94,39.0,-30.94
+16,Racing Bulls,constructor,24.42,53.0,28.58
+16,Red Bull Racing,constructor,51.01,97.0,45.99
+16,Williams,constructor,5.52,5.0,-0.52
+16,Albon,driver,0.23,-10.0,-10.23
+16,Alonso,driver,0.99,17.0,16.01
+16,Antonelli,driver,30.63,29.0,-1.63
+16,Bearman,driver,4.46,7.0,2.54
+16,Bortoleto,driver,5.34,4.0,-1.34
+16,Bottas,driver,-2.49,-20.0,-17.51
+16,Colapinto,driver,5.29,13.0,7.71
+16,Gasly,driver,5.24,0.0,-5.24
+16,Hadjar,driver,16.91,25.0,8.09
+16,Hamilton,driver,17.41,32.0,14.59
+16,Hulkenberg,driver,4.35,19.0,14.65
+16,Lawson,driver,7.53,17.0,9.47
+16,Leclerc,driver,20.24,33.0,12.76
+16,Lindblad,driver,7.73,28.0,20.27
+16,Norris,driver,17.91,16.0,-1.91
+16,Ocon,driver,6.39,12.0,5.61
+16,Perez,driver,-0.97,9.0,9.97
+16,Piastri,driver,13.68,29.0,15.32
+16,Russell,driver,25.39,-5.0,-30.39
+16,Sainz,driver,1.56,4.0,2.44
+16,Stroll,driver,-5.99,11.0,16.99
+16,Verstappen,driver,23.5,57.0,33.5
+17,Alpine,constructor,19.63,-20.0,-39.63
+17,Aston Martin,constructor,-0.17,-13.0,-12.83
+17,Audi,constructor,16.6,-9.0,-25.6
+17,Cadillac,constructor,-4.61,-21.0,-16.39
+17,Ferrari,constructor,56.91,91.0,34.09
+17,Haas F1 Team,constructor,13.68,35.0,21.32
+17,McLaren,constructor,52.21,36.0,-16.21
+17,Mercedes,constructor,73.69,65.0,-8.69
+17,Racing Bulls,constructor,29.27,34.0,4.73
+17,Red Bull Racing,constructor,55.06,66.0,10.94
+17,Williams,constructor,6.82,6.0,-0.82
+17,Albon,driver,-0.41,-10.0,-9.59
+17,Alonso,driver,1.35,11.0,9.65
+17,Antonelli,driver,30.64,33.0,2.36
+17,Bearman,driver,5.08,18.0,12.92
+17,Bortoleto,driver,3.73,-29.0,-32.73
+17,Bottas,driver,-4.33,-11.0,-6.67
+17,Colapinto,driver,6.04,-28.0,-34.04
+17,Gasly,driver,5.7,3.0,-2.7
+17,Hadjar,driver,16.21,8.0,-8.21
+17,Hamilton,driver,21.55,33.0,11.45
+17,Hulkenberg,driver,5.16,17.0,11.84
+17,Lawson,driver,10.22,18.0,7.78
+17,Leclerc,driver,24.44,43.0,18.56
+17,Lindblad,driver,10.44,1.0,-9.44
+17,Norris,driver,22.52,18.0,-4.52
+17,Ocon,driver,6.62,12.0,5.38
+17,Perez,driver,0.33,-9.0,-9.33
+17,Piastri,driver,19.05,6.0,-13.05
+17,Russell,driver,29.3,17.0,-12.3
+17,Sainz,driver,2.62,13.0,10.38
+17,Stroll,driver,-3.04,-28.0,-24.96
+17,Verstappen,driver,27.74,53.0,25.26

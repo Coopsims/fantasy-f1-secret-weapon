@@ -29,85 +29,21 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from openf1_utils import openf1_client
 
 # ──────────────────────────────────────────────────────────────
-# Fantasy F1 2026 Scoring Rules
+# Scoring rules and the 2026 grid live in light-weight shared modules so the
+# weekend simulator can use them without sklearn / xgboost / network access.
+# They are re-exported here so existing imports keep working.
 # ──────────────────────────────────────────────────────────────
 
-# Qualifying points (driver)
-QUALI_PTS = {1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1}
-
-# Race finish points (driver)
-RACE_PTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
-
-# Sprint finish points (driver)
-SPRINT_PTS = {1: 8, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1}
-
-# Penalties and bonuses (driver)
-DNF_PENALTY_RACE = -20
-DNF_PENALTY_SPRINT = -10
-DSQ_PENALTY = -20
-QUALI_NC_PENALTY = -5
-OVERTAKE_BONUS = 1          # per position overtaken in race
-POSITION_GAINED = 1         # per grid position gained (quali -> race)
-POSITION_LOST = -1          # per grid position lost (quali -> race)
-FASTEST_LAP_RACE = 10
-FASTEST_LAP_SPRINT = 5
-DRIVER_OF_THE_DAY = 10      # not reliably in OpenF1, skip for training
-
-# Constructor scoring
-# Constructors score the combined total of both drivers' points
-# (qualifying, race, sprint — but NOT Driver of the Day).
-# Additional constructor-specific bonuses:
-CONSTRUCTOR_QUALI_Q2_Q3 = {
-    "neither_q2": -1,
-    "one_q2": 1,
-    "both_q2": 3,
-    "one_q3": 5,
-    "both_q3": 10,
-}
-CONSTRUCTOR_DSQ_PENALTY_QUALI = -5    # per disqualified driver in qualifying
-CONSTRUCTOR_DSQ_PENALTY_SPRINT = -10  # per disqualified driver in sprint
-CONSTRUCTOR_DSQ_PENALTY_RACE = -20    # per disqualified driver in race
-
-# Pit stop scoring (constructor, based on stationary stop time)
-PIT_STOP_TIERS = [
-    (0.0, 2.0, 20),    # under 2.0s
-    (2.0, 2.2, 10),    # 2.00 - 2.19s
-    (2.2, 2.5, 5),     # 2.20 - 2.49s
-    (2.5, 3.0, 2),     # 2.50 - 2.99s
-    (3.0, float('inf'), 0),  # over 3.0s
-]
-PIT_STOP_FASTEST_BONUS = 5     # fastest pit stop of the race
-PIT_STOP_WORLD_RECORD_BONUS = 15  # new world record (current record 1.8s)
-PIT_STOP_WORLD_RECORD_TIME = 1.8  # current world record in seconds
-
-# ──────────────────────────────────────────────────────────────
-# 2026 Grid - Driver/Team Mapping
-# ──────────────────────────────────────────────────────────────
-
-GRID_2026 = {
-    "Verstappen": "Red Bull Racing",
-    "Hadjar": "Red Bull Racing",
-    "Russell": "Mercedes",
-    "Antonelli": "Mercedes",
-    "Norris": "McLaren",
-    "Piastri": "McLaren",
-    "Leclerc": "Ferrari",
-    "Hamilton": "Ferrari",
-    "Gasly": "Alpine",
-    "Colapinto": "Alpine",
-    "Sainz": "Williams",
-    "Albon": "Williams",
-    "Alonso": "Aston Martin",
-    "Stroll": "Aston Martin",
-    "Bearman": "Haas F1 Team",
-    "Ocon": "Haas F1 Team",
-    "Hulkenberg": "Audi",
-    "Bortoleto": "Audi",
-    "Lawson": "Racing Bulls",
-    "Lindblad": "Racing Bulls",
-    "Perez": "Cadillac",
-    "Bottas": "Cadillac",
-}
+from f1_rules import (  # noqa: E402,F401
+    QUALI_PTS, RACE_PTS, SPRINT_PTS, DNF_PENALTY_RACE, DNF_PENALTY_SPRINT, DSQ_PENALTY,
+    QUALI_NC_PENALTY, OVERTAKE_BONUS, POSITION_GAINED, POSITION_LOST, FASTEST_LAP_RACE,
+    FASTEST_LAP_SPRINT, DRIVER_OF_THE_DAY, CONSTRUCTOR_QUALI_Q2_Q3,
+    CONSTRUCTOR_DSQ_PENALTY_QUALI, CONSTRUCTOR_DSQ_PENALTY_SPRINT, CONSTRUCTOR_DSQ_PENALTY_RACE,
+    Q2_CUTOFF, Q3_CUTOFF, PIT_STOP_TIERS, PIT_STOP_FASTEST_BONUS,
+    PIT_STOP_WORLD_RECORD_BONUS, PIT_STOP_WORLD_RECORD_TIME,
+)
+from f1_calendar import GRID_2026, canon_driver, canon_team  # noqa: E402,F401
+from f1_weekend_data import compute_overtakes  # noqa: E402
 
 
 # ──────────────────────────────────────────────────────────────
@@ -131,6 +67,10 @@ def get_session_data(session, driver_map):
     data = {
         "session_key": sk,
         "session_type": stype,
+        "session_name": session.get("session_name"),     # authoritative for Sprint vs normal sessions
+        # the line-up of THIS session: Practice 1 (used for the meeting-level list) often runs
+        # reserve drivers, which hides the real race drivers / puts them in the wrong car
+        "drivers": openf1_get("drivers", {"session_key": sk}),
         "positions": openf1_get("position", {"session_key": sk}),
     }
 
@@ -146,6 +86,57 @@ def get_session_data(session, driver_map):
     return data
 
 
+def meeting_gaps(m):
+    """Reasons a cached meeting is incomplete (failed / rate-limited fetches), [] if fine.
+    Pit stops are only expected for the main race (the sprint has none)."""
+    if "testing" in (m.get("meeting_name") or "").lower():
+        return []
+    sessions = m.get("sessions") or []
+    if not sessions:
+        return ["no sessions"]
+    gaps = []
+    for s in sessions:
+        if not s.get("drivers"):
+            gaps.append(f"{s['session_type']} {s['session_key']}: no drivers")
+        if not s.get("positions"):
+            gaps.append(f"{s['session_type']} {s['session_key']}: no positions")
+    races = sorted((s for s in sessions if s["session_type"] == "Race"),
+                   key=lambda s: s["session_key"])
+    for i, s in enumerate(races):
+        need = ["laps", "stints"] + (["pit"] if i == len(races) - 1 else [])
+        gaps += [f"Race {s['session_key']}: no {k}" for k in need if not s.get(k)]
+    return gaps
+
+
+def backfill_session_drivers(meetings):
+    """Caches written before per-session driver lists existed: fetch them (one call per session)."""
+    n = 0
+    for m in meetings:
+        for s in m.get("sessions") or []:
+            if not s.get("drivers"):
+                s["drivers"] = openf1_get("drivers", {"session_key": s["session_key"]}) or []
+                n += 1
+                time.sleep(0.05)
+    return n
+
+
+def _fetch_meeting(meeting, workers):
+    mk = meeting["meeting_key"]
+    sessions = openf1_get("sessions", {"meeting_key": mk}) or []
+    drivers = openf1_get("drivers", {"session_key": sessions[0]["session_key"]}) if sessions else []
+    driver_map = {d["driver_number"]: d.get("last_name", "") for d in drivers}
+    data = {"year": meeting.get("year"), "location": meeting.get("location", "Unknown"),
+            "meeting_key": mk, "meeting_name": meeting.get("meeting_name", ""),
+            "date_start": meeting.get("date_start"), "drivers": drivers, "sessions": []}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(get_session_data, s, driver_map): s for s in sessions}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                data["sessions"].append(result)
+    return data
+
+
 def collect_data(years=None, output_file="raw_historical_data.json"):
     """Collect raw race data from OpenF1 for given years."""
     if years is None:
@@ -157,7 +148,13 @@ def collect_data(years=None, output_file="raw_historical_data.json"):
     else:
         all_data = []
 
-    processed_keys = {m["meeting_key"] for m in all_data}
+    n_bf = backfill_session_drivers(all_data)
+    if n_bf:
+        print(f"  Backfilled per-session driver lists for {n_bf} cached sessions")
+        with open(output_file, "w") as f:
+            json.dump(all_data, f)
+    # meetings with gaps (failed / rate-limited fetches) are retried, not trusted
+    processed_keys = {m["meeting_key"] for m in all_data if not meeting_gaps(m)}
 
     openf1_client.check_refresh()
     is_paid = openf1_client.token is not None
@@ -177,32 +174,13 @@ def collect_data(years=None, output_file="raw_historical_data.json"):
                 continue
 
             print(f"    [{i+1}/{len(meetings)}] {location} (key={mk})")
-
-            sessions = openf1_get("sessions", {"meeting_key": mk})
-            drivers = []
-            if sessions:
-                drivers = openf1_get("drivers", {"session_key": sessions[0]["session_key"]})
-
-            driver_map = {d["driver_number"]: d.get("last_name", "") for d in drivers}
-
-            meeting_data = {
-                "year": year,
-                "location": location,
-                "meeting_key": mk,
-                "meeting_name": meeting.get("meeting_name", ""),
-                "drivers": drivers,
-                "sessions": [],
-            }
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = {pool.submit(get_session_data, s, driver_map): s for s in sessions}
-                for future in concurrent.futures.as_completed(futures):
-                    result = future.result()
-                    if result:
-                        meeting_data["sessions"].append(result)
-
-            all_data.append(meeting_data)
-            processed_keys.add(mk)
+            meeting_data = _fetch_meeting({**meeting, "year": year}, workers)
+            gaps = meeting_gaps(meeting_data)
+            if gaps:
+                print(f"      ⚠ incomplete after fetch (will retry next run): {gaps}")
+            all_data = [m for m in all_data if m["meeting_key"] != mk] + [meeting_data]
+            if not gaps:
+                processed_keys.add(mk)
 
             with open(output_file, "w") as f:
                 json.dump(all_data, f)
@@ -227,28 +205,19 @@ def _latest_positions(positions_list):
     return latest
 
 
-def _compute_overtakes(laps_list, driver_map):
-    """Count net overtakes per driver from lap-by-lap position data."""
-    driver_laps = {}
-    for lap in laps_list:
-        dn = lap.get("driver_number")
-        lap_num = lap.get("lap_number")
-        pos = lap.get("position")
-        if dn and lap_num and pos:
-            driver_laps.setdefault(dn, []).append((lap_num, pos))
+def _compute_overtakes(session, driver_map):
+    """
+    On-track passes per driver name for a race/sprint session.
 
-    overtakes = {}
-    for dn, laps in driver_laps.items():
-        laps.sort()
-        ov = 0
-        for i in range(1, len(laps)):
-            diff = laps[i - 1][1] - laps[i][1]
-            if diff > 0:
-                ov += diff
-        name = driver_map.get(dn, str(dn))
-        overtakes[name] = ov
-
-    return overtakes
+    The OpenF1 `laps` endpoint has no `position` field (the old implementation
+    read one and therefore always returned 0), so passes are derived from the
+    position stream with pit-cycle shuffles excluded - see
+    f1_weekend_data.compute_overtakes.
+    """
+    raw = compute_overtakes(session.get("positions"), session.get("laps"), session.get("pit"))
+    if not raw:
+        return {}
+    return {driver_map.get(dn, str(dn)): n for dn, n in raw.items()}
 
 
 def _find_fastest_lap(laps_list, driver_map):
@@ -294,7 +263,7 @@ def _fastest_pit_stop(pit_list, driver_map, team_map):
         return None, None
     team_best = {}
     for p in pit_list:
-        dur = p.get("pit_duration")
+        dur = p.get("stop_duration") or p.get("pit_duration")
         dn = p.get("driver_number")
         if dur and dn:
             team = team_map.get(dn, "Unknown")
@@ -320,13 +289,16 @@ def process_raw_data(data, years_filter=None):
 
         location = meeting["location"]
         drivers_list = meeting.get("drivers", [])
-        driver_map = {d["driver_number"]: d.get("last_name", "") for d in drivers_list}
-        team_map = {d["driver_number"]: d.get("team_name", "Unknown") for d in drivers_list}
+        # Canonical names: strip accents (Hülkenberg -> Hulkenberg) and map team
+        # renames (Kick Sauber -> Audi, RB -> Racing Bulls) so history lines up
+        # with the 2026 grid.
+        driver_map = {d["driver_number"]: canon_driver(d.get("last_name", "")) for d in drivers_list}
+        team_map = {d["driver_number"]: canon_team(d.get("team_name", "Unknown")) for d in drivers_list}
 
         # Build name->team mapping
         name_team = {}
         for d in drivers_list:
-            name_team[d.get("last_name", "")] = d.get("team_name", "Unknown")
+            name_team[canon_driver(d.get("last_name", ""))] = canon_team(d.get("team_name", "Unknown"))
 
         # Collect session results
         quali_pos = {}
@@ -371,7 +343,7 @@ def process_raw_data(data, years_filter=None):
                     name = driver_map.get(dn)
                     if name:
                         race_pos[name] = pos
-                race_overtakes = _compute_overtakes(session.get("laps", []), driver_map)
+                race_overtakes = _compute_overtakes(session, driver_map)
                 race_fastest_lap = _find_fastest_lap(session.get("laps", []), driver_map)
                 race_dnf = _detect_dnf(session.get("stints", []), driver_map)
                 race_pit_data = session.get("pit", [])
@@ -392,7 +364,7 @@ def process_raw_data(data, years_filter=None):
                     name = driver_map.get(dn)
                     if name:
                         sprint_pos[name] = pos
-                sprint_overtakes = _compute_overtakes(session.get("laps", []), driver_map)
+                sprint_overtakes = _compute_overtakes(session, driver_map)
                 sprint_fastest_lap = _find_fastest_lap(session.get("laps", []), driver_map)
                 sprint_dnf = _detect_dnf(session.get("stints", []), driver_map)
 
@@ -493,11 +465,11 @@ def process_raw_data(data, years_filter=None):
                     c_pts += QUALI_NC_PENALTY  # NC/DSQ/no time
 
             # Q2/Q3 progression bonus (infer from final quali position)
-            # Top 15 made Q2, top 10 made Q3
+            # Top 16 made Q2 (22 cars: Q1 drops 6), top 10 made Q3
             team_quali_positions = [quali_pos.get(d) for d in team_drivers
                                     if isinstance(quali_pos.get(d), int)]
-            q3_count = sum(1 for p in team_quali_positions if p <= 10)
-            q2_count = sum(1 for p in team_quali_positions if p <= 15)
+            q3_count = sum(1 for p in team_quali_positions if p <= Q3_CUTOFF)
+            q2_count = sum(1 for p in team_quali_positions if p <= Q2_CUTOFF)
             if q3_count >= 2:
                 c_pts += CONSTRUCTOR_QUALI_Q2_Q3["both_q3"]
             elif q3_count == 1:
@@ -593,14 +565,19 @@ def process_raw_data(data, years_filter=None):
 # ──────────────────────────────────────────────────────────────
 
 def add_round_numbers(df):
-    """Add sequential round numbers within each year based on appearance order."""
+    """
+    Add sequential round numbers within each year, in the order races were run.
+
+    Rows are written in chronological meeting order, so first appearance is the
+    calendar order.  (This used to sort circuits alphabetically, which scrambled
+    every lag / rolling feature built on top of it.)
+    """
     if df.empty:
         return df
     df = df.copy()
     locations_by_year = (
         df.drop_duplicates(subset=["year", "location"])
-        .sort_values(["year", "location"])
-        .groupby("year")["location"]
+        .groupby("year", sort=False)["location"]
         .apply(list)
         .to_dict()
     )
