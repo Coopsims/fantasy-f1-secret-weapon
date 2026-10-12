@@ -27,8 +27,8 @@ ones (8 weekends) against the game's official points, leak-free panel:
 \* actual points of the 5 drivers ranked highest, divided by the best possible 5.
 
 **Selection caveat (corrected tonight).** The even gamedays were not used for tuning, but the *pair* extra-trees +
-XGBoost was picked after looking at them - it is the best of 92 family subsets there, so 14.62 is the most flattering
-number. Choosing the subset on the odd gamedays instead (`experiments/s26_selection_check.py`) gives 14.65 over the
+XGBoost was picked after looking at them - it is the best of the 25 subsets of the first 5 families there (and of all
+92 once the 3 new families are added), so 14.62 is the most flattering number. Choosing the subset on the odd gamedays instead (`experiments/s26_selection_check.py`) gives 14.65 over the
 original 5 families (it picks extra-trees alone) and 14.75 over all 8 (it picks extra-trees + MLP, because the MLP
 fitted its tuning half: 14.58 odd -> 15.06 even). I did not deploy that pick; ET+XGB stays. Honest expectation:
 **~14.65-14.75, about 0.5 better than the simulator (15.22)** (extra-trees vs simulator -0.57, 95% CI -1.22 to +0.10;
@@ -52,7 +52,8 @@ re-scored tonight under the corrected game rules (below):
 | this model alone | 4035 | 70% |
 | simulator alone | 3456 | 60% |
 
-(Before the rule fixes these were 4151 / 3955 / 3953 / 3330 of 5741: the x3 fix raised every policy that plays the chip.)
+(Before the rule fixes: 4151 / 3955 / 3953 / 3330 of 5741. With the x3 Boost scored correctly the chip plays changed:
+simulator + form +126, model +82, simulator +126, the planning blend -8 - so its lead shrank from ~200 to 62 points.)
 
 Shrinking the forecasts for planning wins: the optimiser chases the largest predicted edges, so noisy differences get
 over-acted on (the optimiser's curse). The planning blend is best in every policy setting tried (4095-4143 points
@@ -92,8 +93,8 @@ features did not survive the leak fix as useful.
 From Hamilton, Antonelli, Colapinto, Lawson, Bearman, Ferrari, Racing Bulls (bank $2.4m, 3 free transfers):
 **OUT Hamilton, Colapinto, Racing Bulls - IN Mercedes, Hulkenberg, Lindblad, 2x on Antonelli: expected 212.4 vs 181.4
 for keeping the team** (no penalty). Replaying the model's own errors from each of the 17 weekends so far, the move
-beats keeping the team in 82% of them; this week's range 184-344 (10th-90th percentile). Every model tried tonight
-gave this same move. Re-run after Friday's practice - practice pace is one of the stronger inputs.
+beats keeping the team in 82% of them; this week's range 184-344 (10th-90th percentile). Every model version run
+through the planner tonight (provisional, deploy, 5-seed deploy) gave this same move. Re-run after Friday's practice - practice pace is one of the stronger inputs.
 
 Rest-of-season plans for each chip scenario (`results/SEASON_PLAN.md`; which chips you have left is unknown to me):
 
