@@ -1,46 +1,52 @@
 {
- "name": "provisional: mean(extratrees, xgb) tuned on odd 2026 gamedays (s26 interleaved)",
+ "name": "2026 deploy: mean(extratrees, xgb) tuned on all 17 gamedays (walk-forward, official points)",
  "specs": [
   {
    "family": "extratrees",
    "fset": "no_track",
    "half_life": 999,
-   "w26": 1.4132665375329219,
+   "w26": 1.907820395026275,
    "use_official": false,
    "ewma_alpha": 0.2,
-   "b_early": 0.3307029525511198,
-   "b_late": 0.058793858261721815,
-   "kappa": 6.207786579347923,
-   "c_ewma": 0.11557279897020595,
+   "b_early": 0.9864450029847,
+   "b_late": 0.011617987265264126,
+   "kappa": 3.3304491448742644,
+   "c_ewma": 0.0020796627978877593,
    "hp": {
-    "n_estimators": 396,
-    "min_samples_leaf": 4,
-    "max_features": 0.9078656265312756
+    "n_estimators": 375,
+    "min_samples_leaf": 8,
+    "max_features": 0.9350729647512572
    }
   },
   {
    "family": "xgb",
-   "fset": "all",
+   "fset": "no_track",
    "half_life": 100,
-   "w26": 1.0721522407438968,
+   "w26": 1.1637892722928793,
    "use_official": true,
    "ewma_alpha": 0.2,
-   "b_early": 0.2965394557464022,
-   "b_late": 0.16683374726792813,
-   "kappa": 0.9450676232245561,
-   "c_ewma": 0.16365471680759391,
+   "b_early": 0.5672245714862316,
+   "b_late": 0.01739717737512926,
+   "kappa": 4.257382854083675,
+   "c_ewma": 0.08758133933879947,
    "hp": {
-    "n_estimators": 482,
-    "max_depth": 3,
-    "learning_rate": 0.02245275305665475,
-    "min_child_weight": 1.7980404212785237,
-    "subsample": 0.8635142468546861,
-    "colsample_bytree": 0.9472474334202712,
-    "reg_lambda": 0.9136988124002294
+    "n_estimators": 269,
+    "max_depth": 4,
+    "learning_rate": 0.07203110897482279,
+    "min_child_weight": 43.43949584067513,
+    "subsample": 0.7924214628946726,
+    "colsample_bytree": 0.9778779647706889,
+    "reg_lambda": 11.382492725724418
    }
   }
  ],
  "c_sim": 0.0,
  "bonus_alpha": 0.2,
- "evidence": "even gamedays (held out): driver RMSE 14.59 vs simulator 15.22 (-0.63, CI -1.29..+0.01), pick5 0.81 vs 0.71; constructors derived (c_sim 0) RMSE 20.6 vs simulator 22.2"
+ "planning_blend": {
+  "w_model": 0.5,
+  "w_sim": 0.3,
+  "w_ewma": 0.2,
+  "ewma_alpha": 0.2
+ },
+ "evidence": "Honest estimate (same family/structure tuned on odd 2026 gamedays, scored on the 8 even ones, leak-free panel): driver RMSE 14.62 vs simulator 15.22 (-0.60, 95% CI -1.26..+0.05), vs simulator+form 15.12, vs previous best 15.01; pick-5 value 0.79 vs 0.71. Constructors derived (c_sim 0): RMSE ~20.6 vs simulator 22.0-22.2 on both halves. Decisions: planning blend 0.5 model + 0.3 simulator + 0.2 form played the 2026 season best walk-forward (4151 = 72% of the 5741 optimum; model alone 3953, simulator+form 3955, simulator 3330) - in-sample, one season."
 }
