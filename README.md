@@ -170,3 +170,18 @@ python plan_next_race.py --team Hamilton Antonelli Colapinto Lawson Bearman Ferr
 ```
 
 `docs/FANTASY_FEED_NOTES.md` describes the feed and how the price rule was checked against it.
+
+## Planning the rest of the season
+
+```bash
+python fetch_fantasy_feed.py         # latest official points and the game's current prices
+python fetch_openf1_full.py          # latest results (and practice, once the next weekend's practice has run)
+python plan_next_race.py --team Hamilton Antonelli Colapinto Lawson Bearman Ferrari "Racing Bulls" --bank 2.4 --free 3 --chips 3x_booster
+python plan_season.py   --team Hamilton Antonelli Colapinto Lawson Bearman Ferrari "Racing Bulls" --bank 2.4 --free 3 --chips limitless
+python plan_season.py   --budget 100 --price Antonelli=26.5        # a fresh team / any prices you want to try
+```
+
+Both use `f1_planner.py`: forecasts for every remaining race from the model in `results/s26_final_spec.json`
+(tree models on the feature panel + the weekend simulator + recent official form, blended), the game's current
+prices projected with its price rule, and the exact solver. Chips: wildcard, 3x booster, no negative, limitless
+(Final Fix and Autopilot are not modelled). Options: `--keep`, `--avoid`, `--rounds`, `--discount`, `--flat-prices`.

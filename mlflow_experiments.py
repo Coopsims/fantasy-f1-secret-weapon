@@ -120,8 +120,8 @@ class Forecast:
 class Sim:
     kind = "sim"
 
-    def __init__(self, params=None, n_sims=3000, seed=11, recalibrate_every=6, known_sq=False):
-        self.params = replace(params or ModelParams(), dotd=False)
+    def __init__(self, params=None, n_sims=3000, seed=11, recalibrate_every=6, known_sq=False, dotd=False):
+        self.params = replace(params or ModelParams(), dotd=dotd)     # dotd=True when scoring against official points
         self.n_sims, self.seed, self.recal = n_sims, seed, recalibrate_every
         self.known_sq = known_sq       # Sprint weekends: Sprint Qualifying is over before the lock
 
@@ -155,7 +155,7 @@ class Sim:
                 if len(sq):
                     known = {"sprint_quali": list(sq["driver"])}
             fc = simulate_weekend(model, race, n=self.n_sims, seed=self.seed + t, known=known)
-            tot = fc.total_points(include_dotd=False)
+            tot = fc.total_points(include_dotd=p.dotd)
             pdnf = fc.dnf["race"].mean(0)
             for i, d in enumerate(fc.drivers):
                 rows.append((t, d, float(tot[:, i].mean()), float(np.percentile(tot[:, i], 10)),

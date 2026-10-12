@@ -1,102 +1,74 @@
 #!/usr/bin/env python3
 """
-Best transfers for the next race (plan_next_race.py)
-====================================================
-Forecasts the next few raced weekends from all results so far, then solves exactly (f1_strategy MILP) for the
-transfers / boost that maximise expected points over that horizon, from YOUR current team, bank and free transfers.
+Best changes for the next race (plan_next_race.py)
+==================================================
+From your current team, bank, free transfers and chips: the exact best transfers, boost and chip for the next race,
+planned over the next few races so this week's moves also suit the following ones (f1_planner, same model as
+plan_season.py).  Re-run after practice (fetch_openf1_full.py first) to use that weekend's practice pace.
 
     python plan_next_race.py --team Hamilton Antonelli Colapinto Lawson Bearman Ferrari "Racing Bulls" \\
-                             --bank 2.4 --free 3 [--chips wildcard 3x_booster no_negative] [--horizon 3]
-
-Prices: the game's current prices (fantasy_f1_prices_official.csv from fetch_fantasy_feed.py), held flat
-over the horizon. Forecast: the weekend simulator incl. Driver of the Day, optionally shrunk toward an EWMA of
-the game's official points (--ewma, 0.3 was the strongest lever in the 2026 policy search; in-sample).
-Rules (2 free transfers per race, bank up to 3, -10 per extra) are this project's assumptions.
+                             --bank 2.4 --free 3 [--chips 3x_booster limitless] [--horizon 3] [--keep ...] [--avoid ...]
 """
 import argparse
 
 import numpy as np
 import pandas as pd
 
-import f1_season as S
-from f1_calendar import RACE_CALENDAR_2026
-from f1_strategy import Rules, State, evaluate_plan, solve_strategy
-from f1_weekend_data import load_results
-from f1_weekend_model import WeekendForecaster
-
-
-def forecasts(res, rounds, n=8000):
-    f = WeekendForecaster(res, year=2026, verbose=False)
-    out = []
-    for r in rounds:
-        fc = f.forecast(r, n=n, seed=100 + r)
-        d = dict(zip(fc.drivers, fc.total_points(include_dotd=True).mean(0)))
-        c = dict(zip(fc.teams, fc.constructor_total().mean(0)))
-        out.append(np.array([d.get(e, 0.0) for e in S.DRIVERS] + [c.get(e, 0.0) for e in S.TEAMS]))
-    return np.array(out)
-
-
-def ewma_official(path, alpha=0.2):
-    op = pd.read_csv(path)
-    w = op.pivot_table(index="gameday", columns="name", values="points").reindex(columns=S.ENTITIES).fillna(0.0)
-    e = w.iloc[0].values.astype(float)
-    for _, row in w.iloc[1:].iterrows():
-        e = alpha * row.values + (1 - alpha) * e
-    return e
+import f1_planner as FP
+from plan_season import forecasts, load_specs
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--team", nargs=7, required=True)
     ap.add_argument("--bank", type=float, required=True, help="cost cap remaining ($m)")
     ap.add_argument("--free", type=int, required=True, help="free transfers available")
-    ap.add_argument("--chips", nargs="*", default=[], help="chips still available: wildcard 3x_booster no_negative")
-    ap.add_argument("--horizon", type=int, default=3)
-    ap.add_argument("--discount", type=float, default=0.6)
-    ap.add_argument("--ewma", type=float, default=0.0)
-    ap.add_argument("--prices", default="fantasy_f1_prices_official.csv")
-    ap.add_argument("--official", default="fantasy_f1_official_points.csv")
+    ap.add_argument("--chips", nargs="*", default=[], help="chips still available: wildcard 3x_booster no_negative limitless")
+    ap.add_argument("--horizon", type=int, default=3, help="races planned ahead (the first one is acted on)")
+    ap.add_argument("--discount", type=float, default=0.6, help="weight of each later race (0.6 was best in the 2026 replay)")
+    ap.add_argument("--price", action="append", default=[], help="override a price, e.g. --price Antonelli=26.5")
+    ap.add_argument("--keep", nargs="*", default=[])
+    ap.add_argument("--avoid", nargs="*", default=[])
+    ap.add_argument("--spec", default=FP.SPEC_FILE)
+    ap.add_argument("--refresh", action="store_true")
     a = ap.parse_args()
 
-    res = load_results(verbose=False)
-    done = set(res.weekends[res.weekends["year"] == 2026]["round"])
-    upcoming = [r["round"] for r in RACE_CALENDAR_2026 if not r.get("cancelled") and r["round"] not in done][:a.horizon]
-    pts = forecasts(res, upcoming)
-    if a.ewma:
-        pts = (1 - a.ewma) * pts + a.ewma * ewma_official(a.official)[None, :]
-    pr = pd.read_csv(a.prices)
-    cur = pr[pr["gameday"] == pr["gameday"].max()].set_index("name")["price"]
-    price = np.array([float(cur[e]) for e in S.ENTITIES])
-    team = frozenset(S.ENTITIES.index(S._canon_entity(n)) for n in a.team)
-    wealth = float(price[list(team)].sum()) + a.bank
-    rules = Rules()
-    state = State(prev_team=team, wealth=wealth, free_transfers=a.free, chips_left=tuple(a.chips))
-    H = len(upcoming)
-    disc = a.discount ** np.arange(H)
-    plan = solve_strategy(pts, np.repeat(price[None, :], H, 0), S.IS_DRIVER, rules, state, disc, time_limit=120, mip_rel_gap=0.0)
-
-    names = lambda s: sorted(S.ENTITIES[e] for e in s)
-    def race1(t, boost, chip):
-        tot, per, pen, trs, ok = evaluate_plan([t], [boost], [chip], pts[:1], price[None, :], S.IS_DRIVER, rules, state)
-        return per[0], pen[0], trs[0], ok
-    best_keep_boost = max((e for e in team if S.IS_DRIVER[e]), key=lambda e: pts[0][e])
-    keep = race1(team, best_keep_boost, None)
-    t0, b0, c0 = plan.teams[0], plan.boosts[0], plan.chips[0]
-    new = race1(t0, b0, c0)
-    print(f"Next races: {[next(r['name'] for r in RACE_CALENDAR_2026 if r['round'] == x) for x in upcoming]}  "
-          f"(team value + bank = ${wealth:.1f}m, {a.free} free transfers, chips {a.chips or 'none given'})")
-    print(f"\nKeep the team, boost {S.ENTITIES[best_keep_boost]}: expected {keep[0]:.1f} pts in {RACE_CALENDAR_2026[upcoming[0] - 1]['name']}")
-    print(f"Recommended:  OUT {sorted(set(names(team)) - set(names(t0)))}  IN {sorted(set(names(t0)) - set(names(team)))}"
-          f"  boost {S.ENTITIES[b0]}  chip {c0 or '-'}  ->  expected {new[0]:.1f} pts (transfer penalty {new[1]:.0f})")
-    print(f"Horizon plan (optimal: {plan.optimal}):")
-    for k in range(H):
-        print(f"  {RACE_CALENDAR_2026[upcoming[k] - 1]['name']:16s} team {names(plan.teams[k])}  boost {S.ENTITIES[plan.boosts[k]]}"
-              f"  chip {plan.chips[k] or '-'}  transfers {plan.transfers_in[k]}  exp {plan.round_points[k]:.1f}")
-    print("\nForecast for the next race (expected points; per-driver error is typically +-11):")
-    order = np.argsort(-pts[0])
-    rows = [(S.ENTITIES[e], "D" if S.IS_DRIVER[e] else "C", round(pts[0][e], 1), price[e], round(pts[0][e] / price[e], 2),
-             "*" if e in team else "") for e in order]
-    print(pd.DataFrame(rows, columns=["asset", "type", "exp_pts", "price", "pts_per_$m", "yours"]).to_string(index=False))
+    import mlflow_experiments as X
+    res, truth, _ = X.get_data()
+    rounds = FP.upcoming_rounds(res, a.horizon)
+    names = [next(r["name"] for r in FP.RACE_CALENDAR_2026 if r["round"] == x) for x in rounds]
+    specs, c_sim, spec_name = load_specs(a.spec)
+    pts = forecasts(rounds, specs, c_sim, a.refresh)
+    price_now = FP.current_prices(overrides=dict(p.split("=", 1) for p in a.price))
+    path = FP.project_prices(price_now, pts, FP.official_tables())
+    team = [FP.canon_entity(n) for n in a.team]
+    plan, state = FP.plan(pts, path, team=team, bank=a.bank, free=a.free, chips=a.chips, discount=a.discount,
+                          locked_in=a.keep, locked_out=a.avoid)
+    rules = FP.Rules()
+    keep_boost = max((FP.ENTITIES.index(n) for n in team if n in FP.DRIVERS), key=lambda e: pts[0][e])
+    idx = frozenset(FP.ENTITIES.index(n) for n in team)
+    keep_tot, keep_per, *_ = FP.evaluate_plan([idx], [keep_boost], [None], pts[:1], path[:1], FP.IS_DRIVER, rules, state)
+    t0 = [FP.ENTITIES[e] for e in sorted(plan.teams[0])]
+    print(f"Model: {spec_name}\nNext race: {names[0]} | value + bank ${state.wealth:.1f}m | {a.free} free transfer(s) | chips {a.chips or 'none'}")
+    if plan.chips[0] == "limitless":
+        print(f"\nPLAY LIMITLESS this week: team {t0}, boost {FP.ENTITIES[plan.boosts[0]]} (your team returns afterwards)")
+    else:
+        print(f"\nKeep the team (boost {FP.ENTITIES[keep_boost]}): expected {keep_per[0]:.1f} pts")
+        print(f"Recommended:  OUT {sorted(set(team) - set(t0)) or '-'}  IN {sorted(set(t0) - set(team)) or '-'}  "
+              f"boost {FP.ENTITIES[plan.boosts[0]]}  chip {plan.chips[0] or '-'}  -> expected {plan.round_points[0]:.1f} pts "
+              f"(transfer penalty {plan.penalties[0]:.0f})")
+    print(f"\nPlan for the next {len(rounds)} races (only the first is acted on; re-run each week; optimal: {plan.optimal}):")
+    prev = set(team)
+    for k, nm in enumerate(names):
+        tk = [FP.ENTITIES[e] for e in sorted(plan.teams[k])]
+        print(f"  {nm:16s} {', '.join(tk)} | boost {FP.ENTITIES[plan.boosts[k]]} | chip {plan.chips[k] or '-'} | "
+              f"in {sorted(set(tk) - prev) or '-'} | exp {plan.round_points[k]:.1f}")
+        if plan.chips[k] != "limitless":
+            prev = set(tk)
+    nxt = pd.DataFrame({"asset": FP.ENTITIES, "type": np.where(FP.IS_DRIVER, "D", "C"), "exp_points": pts[0].round(1),
+                        "price": price_now, "pts_per_$m": (pts[0] / price_now).round(2),
+                        "yours": ["*" if e in team else "" for e in FP.ENTITIES]}).sort_values("exp_points", ascending=False)
+    print(f"\nForecast for {names[0]} (typical error +-11-15 points per driver):\n" + nxt.to_string(index=False))
 
 
 if __name__ == "__main__":

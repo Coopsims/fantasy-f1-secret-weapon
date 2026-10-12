@@ -193,7 +193,7 @@ def build_panel(res, truth, full=None, pdata=None, tracks=None):
     df = df.merge(pd.DataFrame({"t": res.weekends.sort_values("t")["t"].values, "wk_in_season": wk_order.values}), on="t", how="left")
     df["trk_street"] = df["location"].isin(STREET).astype(float)
     if pdata is not None:
-        pt = P.build_practice_features(pdata, res.weekends, res.sessions)
+        pt = P.build_practice_features(pdata, res.weekends, res.sessions, extra_field=truth[["t", "driver", "team"]])
         df = df.merge(pt, on=["t", "driver"], how="left")
     if full is not None:
         wk, dsp = _weekend_tables(full, res.weekends)

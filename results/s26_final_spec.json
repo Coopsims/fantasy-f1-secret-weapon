@@ -1,0 +1,46 @@
+{
+ "name": "provisional: mean(extratrees, xgb) tuned on odd 2026 gamedays (s26 interleaved)",
+ "specs": [
+  {
+   "family": "extratrees",
+   "fset": "no_track",
+   "half_life": 999,
+   "w26": 1.4132665375329219,
+   "use_official": false,
+   "ewma_alpha": 0.2,
+   "b_early": 0.3307029525511198,
+   "b_late": 0.058793858261721815,
+   "kappa": 6.207786579347923,
+   "c_ewma": 0.11557279897020595,
+   "hp": {
+    "n_estimators": 396,
+    "min_samples_leaf": 4,
+    "max_features": 0.9078656265312756
+   }
+  },
+  {
+   "family": "xgb",
+   "fset": "all",
+   "half_life": 100,
+   "w26": 1.0721522407438968,
+   "use_official": true,
+   "ewma_alpha": 0.2,
+   "b_early": 0.2965394557464022,
+   "b_late": 0.16683374726792813,
+   "kappa": 0.9450676232245561,
+   "c_ewma": 0.16365471680759391,
+   "hp": {
+    "n_estimators": 482,
+    "max_depth": 3,
+    "learning_rate": 0.02245275305665475,
+    "min_child_weight": 1.7980404212785237,
+    "subsample": 0.8635142468546861,
+    "colsample_bytree": 0.9472474334202712,
+    "reg_lambda": 0.9136988124002294
+   }
+  }
+ ],
+ "c_sim": 0.0,
+ "bonus_alpha": 0.2,
+ "evidence": "even gamedays (held out): driver RMSE 14.59 vs simulator 15.22 (-0.63, CI -1.29..+0.01), pick5 0.81 vs 0.71; constructors derived (c_sim 0) RMSE 20.6 vs simulator 22.2"
+}

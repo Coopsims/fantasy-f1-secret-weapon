@@ -65,7 +65,7 @@ def _session_table(sess):
     return out.dropna(subset=["driver"])[["driver", "best", "lr", "laps"]]
 
 
-def build_practice_features(pdata, weekends, sessions):
+def build_practice_features(pdata, weekends, sessions, extra_field=None):
     """
     pdata     : load_practice()
     weekends  : Results.weekends (t, year, location)
@@ -100,6 +100,9 @@ def build_practice_features(pdata, weekends, sessions):
     fp = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(columns=["t", "driver"] + FP_FEATURES)
 
     field = sessions[sessions["session"] == "R"][["t", "driver", "team"]]
+    if extra_field is not None:                 # weekends without a race yet (the next race, during practice)
+        add = extra_field[~extra_field["t"].isin(set(field["t"]))][["t", "driver", "team"]]
+        field = pd.concat([field, add], ignore_index=True)
     out = field.merge(fp, on=["t", "driver"], how="left")
     out["fp_team_gap_min"] = out.groupby(["t", "team"])["fp_gap_min"].transform("min")
     mate = out.groupby(["t", "team"])["fp_gap_min"].transform("sum") - out["fp_gap_min"].fillna(0)

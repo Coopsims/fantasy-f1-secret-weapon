@@ -121,7 +121,7 @@ def evaluate_plan(plan_teams, plan_boosts, plan_chips, pts, price, is_driver, ru
 
 def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
                    time_limit=300, mip_rel_gap=0.0, verbose=False,
-                   terminal_price=None, value_weight=0.0, chip_cost=None):
+                   terminal_price=None, value_weight=0.0, chip_cost=None, frozen=()):
     """
     Maximise (discounted) points over all weekends.
 
@@ -132,6 +132,8 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
         terminal_price after the last weekend) with `value_weight` points.
     chip_cost  : {chip: points} subtracted when a chip is used (keeps chips in reserve
         unless the planned gain beats it).
+    frozen     : rounds in which the team cannot change and no chip can be played (used to model the
+        Limitless chip: the real team is parked that week and reverts afterwards; see f1_planner).
     Neither changes how a plan is *scored*: plan.total is always true points (evaluate_plan).
     Returns a Plan (plan.optimal is True when optimality is proven).
     """
@@ -293,6 +295,12 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
             if t == 0 and first_free:
                 add({ftn: 1}, -np.inf, min(rules.max_bank, state.free_transfers + rules.free_per_round))
 
+    for t in frozen:                       # team parked: no transfers, no chips this round
+        if t == 0 and first_free:
+            raise ValueError("cannot freeze the first round of a fresh team")
+        ub[idx[("in", t)]] = 0
+        ub[[idx[("wc", t)][0], idx[("nn", t)][0]]] = 0
+        ub[idx[("b3", t)]] = 0
     # wealth at round 0
     W0 = state.wealth if state.wealth is not None else rules.budget
     ub[idx[("W", 0)]] = W0
