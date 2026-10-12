@@ -30,7 +30,8 @@ if __name__ == "__main__":
     base = dict(horizon=3, discount=0.6, price_aware=True, value_weight=0.0, chip_cost=0.0)
     sweep = [S.PlayPolicy(**base, ewma_blend=w) for w in (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0)]
     df = S.tune_play(rep, prices, rules, rule, grid + sweep, workers=8, optimum=plan, verbose=False)
-    df["set"] = ["grid"] * len(grid) + ["ewma_sweep"] * len(sweep)
+    # tune_play returns rows sorted by gap: label them by their position in the input list, not by row order
+    df["set"] = np.where(df["grid_index"] < len(grid), "grid", "ewma_sweep")
     df.to_csv("results/season_2026_official_policies.csv", index=False)
     opt.to_csv("results/season_2026_official_optimum.csv", index=False)
     acc.to_csv("results/season_2026_official_accuracy.csv", index=False)

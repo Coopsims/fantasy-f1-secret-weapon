@@ -182,7 +182,10 @@ def replay(res, year=2026, n_sims=4000, horizon=3, params=None, verbose=True, of
                     print(f"  R{rnd:<2d} trained on {row['history_weekends']:>2d} weekends | driver MAE {row['driver_mae']:5.2f} "
                           f"(naive {row['driver_mae_naive3']:5.2f}) | rank-corr {row['driver_rankcorr']:5.2f} "
                           f"| 80%-cover {row['driver_cover80']:.2f}")
-    return {"actuals": act, "forecasts": forecasts, "accuracy": pd.DataFrame(acc_rows)}
+    # With official points every constructor score includes pit stops, so decisions must use the forecast
+    # *with* pit points; reconstructed points only have them where OpenF1 has stop times.
+    return {"actuals": act, "forecasts": forecasts, "accuracy": pd.DataFrame(acc_rows),
+            "official": official is not None}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -246,7 +249,8 @@ def play_season(rep, prices, rules=None, horizon=3, discount=0.7, use_chips=True
     for i, rnd in enumerate(act["rounds"]):
         H = [k for k in range(policy.horizon)
              if i + k < R and (rnd, act["rounds"][i + k]) in rep["forecasts"]]
-        pts_h = np.array([rep["forecasts"][(rnd, act["rounds"][i + k])]["mean"] for k in H])
+        fcs = [rep["forecasts"][(rnd, act["rounds"][i + k])] for k in H]
+        pts_h = np.array([f["mean"] + (f["pit"] if rep.get("official") else 0.0) for f in fcs])
         if policy.ewma_blend and i > 0:
             pts_h = (1 - policy.ewma_blend) * pts_h + policy.ewma_blend * _ewma(act["pts"][:i])[None, :]
         if policy.price_aware:
@@ -324,9 +328,9 @@ def tune_play(rep, prices, rules=None, rule=None, grid=None, workers=None, optim
         with ProcessPoolExecutor(max_workers=workers or os.cpu_count(), mp_context=mp.get_context("spawn")) as ex:
             results = list(ex.map(_play_one, jobs, chunksize=4))
     rows = []
-    for p, (tot, per) in zip(grid, results):
+    for gi, (p, (tot, per)) in enumerate(zip(grid, results)):
         per = np.array(per)
-        rows.append({**p.__dict__, "points": tot, "delta": optimum.total - tot,
+        rows.append({**p.__dict__, "grid_index": gi, "points": tot, "delta": optimum.total - tot,
                      "delta_first_half": opt_round[:half].sum() - per[:half].sum(),
                      "delta_second_half": opt_round[half:].sum() - per[half:].sum()})
     df = pd.DataFrame(rows).sort_values("delta").reset_index(drop=True)
@@ -373,6 +377,7 @@ def cached_replay(res, year, n_sims, horizon, params=None, official=None, cache=
         with open(cache, "rb") as f:
             rep = pickle.load(f)
         if rep.get("_key") == _replay_key(res, year, n_sims, horizon, params, official):
+            rep["official"] = official is not None
             print(f"  (replay loaded from {cache})")
             return rep
     rep = replay(res, year, n_sims, horizon, params, official=official)

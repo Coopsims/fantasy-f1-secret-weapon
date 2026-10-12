@@ -111,3 +111,32 @@ def test_replay_cache_key_changes_with_official_points():
     r = synthetic_results(seed=1, rounds_2026=4)
     off = pd.DataFrame({"round": [1], "name": ["Verstappen"], "points": [30.0]})
     assert S._replay_key(r, 2026, 100, 3, None, None) != S._replay_key(r, 2026, 100, 3, None, off)
+
+
+def test_play_includes_pit_points_when_scored_on_official_points(run, monkeypatch):
+    """With official points constructors score pit stops, so the planner must see the pit forecast too."""
+    _, rep, prices = run
+    seen = []
+    real = S.solve_strategy
+
+    def spy(pts, *a, **k):
+        seen.append(np.array(pts))
+        return real(pts, *a, **k)
+
+    monkeypatch.setattr(S, "solve_strategy", spy)
+    first = rep["forecasts"][(rep["actuals"]["rounds"][0], rep["actuals"]["rounds"][0])]
+    for official in (False, True):
+        seen.clear()
+        S.play_season({**rep, "official": official}, prices, Rules(), horizon=1, verbose=False)
+        expect = first["mean"] + (first["pit"] if official else 0.0)
+        assert np.allclose(seen[0][0], expect)
+    assert first["pit"][~S.IS_DRIVER].sum() > 0           # the two runs really differ
+
+
+def test_tune_play_reports_grid_position(run):
+    _, rep, prices = run
+    from f1_prices import PriceRule
+    grid = [S.PlayPolicy(horizon=2), S.PlayPolicy(horizon=1)]
+    df = S.tune_play(rep, prices, Rules(), PriceRule(), grid, workers=1, verbose=False)
+    assert sorted(df["grid_index"]) == [0, 1]
+    assert list(df.set_index("grid_index").loc[[0, 1], "horizon"]) == [2, 1]
