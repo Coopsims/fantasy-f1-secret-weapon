@@ -70,3 +70,11 @@ def test_calendar_is_chronological_and_has_kuala_lumpur():
     locs = [r["location"] for r in RACE_CALENDAR_2026]
     assert locs.index("Baku") < locs.index("Kuala Lumpur") < locs.index("Marina Bay")
     assert historical_round(2026, "Kuala Lumpur") == locs.index("Kuala Lumpur") + 1
+
+
+def test_weekend_without_qualifying_or_race_is_skipped():
+    m = _meeting(1, "Melbourne", "2026-03-06", RACE)
+    m["sessions"] = [m["sessions"][1]]                      # race only: no Q
+    ok = _meeting(2, "Shanghai", "2026-03-13", RACE)
+    res = build_from_meetings([m, ok])
+    assert list(res.weekends.location) == ["Shanghai"]

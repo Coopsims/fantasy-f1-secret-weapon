@@ -124,3 +124,13 @@ fastest-lap preference (`ModelParams.fl_beta`).
   lane, ~20 s, which can never score).
 
 Re-run `python f1_trainer.py` to regenerate training data with these fixes.
+
+## Experiments and MLflow
+
+`mlflow_experiments.py` is a walk-forward evaluation harness (simulator, naive baselines, gradient-boosted model, blends)
+that logs every run to MLflow; `experiments/` holds the scripts that produced `results/MODEL_EXPERIMENTS.md`.
+
+```bash
+python experiments/phase1_baselines.py            # reference forecasters on 2024 (dev) and 2025 (val)
+mlflow ui --backend-store-uri sqlite:///mlflow.db  # browse params, metrics, per-weekend curves, predictions
+```

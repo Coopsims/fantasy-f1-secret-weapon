@@ -93,6 +93,14 @@ class ModelParams:
     chaos_sigma: float = 0.35      # weekend-level multiplier on DNF probability
     fl_beta: float = 0.6           # fastest-lap preference for pace
     dotd: bool = True
+    # -- opt-in extensions (defaults reproduce the original model exactly) --
+    team_block: int = 0            # >0: team strength may drift every `team_block` weekends within a season
+    block_link: float = 4.0        # random-walk stiffness between consecutive blocks (higher = smoother)
+    p0_min: float = 0.03           # clip range of the base DNF rate
+    p0_max: float = 0.15
+    dnf_a_team: float = 20.0       # pseudo-starts shrinking team DNF rate to its prior
+    dnf_a_driver: float = 5.0      # pseudo-DNFs shrinking driver multiplier to 1
+    dnf_half_life_mult: float = 2.0
 
 
 # ──────────────────────────────────────────────────────────────
@@ -183,10 +191,11 @@ class FamilyFit:
     sigma2: float
     with_grid: bool
     target_year: int
+    target_blk: int = 0
 
     def _index(self, driver, team):
         d = self.drivers.index(driver) if driver in self.drivers else None
-        k = (team, self.target_year)
+        k = (team, self.target_year, self.target_blk)
         ty = self.team_years.index(k) if k in self.team_years else None
         return d, (len(self.drivers) + ty) if ty is not None else None
 
@@ -213,7 +222,7 @@ def fit_family(obs, now_t, target_year, field_, params, prior_team, with_grid):
     """Time-decayed ridge fit.  `field_` = {driver: team} for the target weekend."""
     if obs.empty:
         drivers = sorted(field_)
-        team_years = sorted({(t, target_year) for t in field_.values()})
+        team_years = sorted({(t, target_year, 0) for t in field_.values()})
         p = len(drivers) + len(team_years) + (1 if with_grid else 0)
         beta = np.zeros(p)
         for i, ty in enumerate(team_years):
@@ -225,8 +234,17 @@ def fit_family(obs, now_t, target_year, field_, params, prior_team, with_grid):
 
     w = obs["w0"].values * 0.5 ** ((now_t - obs["t"].values) / params.half_life)
     drivers = sorted(set(obs["driver"]) | set(field_))
-    ty_set = set(zip(obs["team"], obs["year"])) | {(t, target_year) for t in field_.values()}
-    team_years = sorted(ty_set, key=lambda k: (k[1], k[0]))
+    B = params.team_block
+    ystart = obs.groupby("year")["t"].min().to_dict()
+    ystart.setdefault(target_year, now_t)
+
+    def blk_of(t_, y_):
+        return int((t_ - ystart[y_]) // B) if B and B > 0 else 0
+
+    obs_blk = [blk_of(t_, y_) for t_, y_ in zip(obs["t"].values, obs["year"].values)]
+    target_blk = blk_of(now_t, target_year)
+    ty_set = set(zip(obs["team"], obs["year"], obs_blk)) | {(t, target_year, target_blk) for t in field_.values()}
+    team_years = sorted(ty_set, key=lambda k: (k[1], k[2], k[0]))
     d_idx = {d: i for i, d in enumerate(drivers)}
     ty_idx = {k: len(drivers) + i for i, k in enumerate(team_years)}
     nd, nty = len(drivers), len(team_years)
@@ -236,7 +254,7 @@ def fit_family(obs, now_t, target_year, field_, params, prior_team, with_grid):
     X = np.zeros((n, p))
     ri = np.arange(n)
     X[ri, [d_idx[d] for d in obs["driver"]]] = 1.0
-    X[ri, [ty_idx[k] for k in zip(obs["team"], obs["year"])]] = 1.0
+    X[ri, [ty_idx[k] for k in zip(obs["team"], obs["year"], obs_blk)]] = 1.0
     if with_grid:
         X[:, -1] = obs["g"].values
     y = obs["y"].values
@@ -248,10 +266,17 @@ def fit_family(obs, now_t, target_year, field_, params, prior_team, with_grid):
     lam[:nd] = params.driver_ridge
     b0 = np.zeros(p)
     use_prior = _regime(target_year) >= 1
-    for (team, yr), j in ty_idx.items():
+    first_new = {}
+    for (team, yr, blk) in ty_idx:
         if yr == target_year:
-            lam[j] = params.team_ridge_new
-            b0[j] = prior_team.get(team, 0.0) if use_prior else 0.0
+            first_new[team] = min(first_new.get(team, blk), blk)
+    for (team, yr, blk), j in ty_idx.items():
+        if yr == target_year:
+            if blk == first_new[team]:
+                lam[j] = params.team_ridge_new
+                b0[j] = prior_team.get(team, 0.0) if use_prior else 0.0
+            else:
+                lam[j] = 1e-3          # later blocks are tied to the previous one by the random-walk link
         else:
             lam[j] = params.team_ridge_old
     if with_grid:
@@ -260,19 +285,27 @@ def fit_family(obs, now_t, target_year, field_, params, prior_team, with_grid):
     M = A + np.diag(lam)
     b = b + lam * b0
     # persistence between consecutive seasons inside one regulation set
-    for (team, yr), j in ty_idx.items():
-        prev = ty_idx.get((team, yr - 1))
-        if prev is not None and _regime(yr) == _regime(yr - 1):
+    by_team = {}
+    for (team, yr, blk) in ty_idx:
+        by_team.setdefault(team, []).append((yr, blk))
+    for team, keys in by_team.items():
+        keys.sort()
+        for (pyr, pblk), (yr, blk) in zip(keys[:-1], keys[1:]):
+            j, prev = ty_idx[(team, yr, blk)], ty_idx[(team, pyr, pblk)]
             v = np.zeros(p)
-            v[j], v[prev] = 1.0, -params.link_rho
-            M += params.team_link * np.outer(v, v)
+            if yr == pyr:                                   # drift inside a season
+                v[j], v[prev] = 1.0, -1.0
+                M += params.block_link * np.outer(v, v)
+            elif yr == pyr + 1 and _regime(yr) == _regime(pyr):   # persistence across seasons
+                v[j], v[prev] = 1.0, -params.link_rho
+                M += params.team_link * np.outer(v, v)
 
     Minv = np.linalg.inv(M)
     beta = Minv @ b
     resid = y - X @ beta
     sigma2 = float(max(0.3, (w * resid ** 2).sum() / max(w.sum(), 1e-9)))
     kappa = float(beta[-1]) if with_grid else 0.0
-    return FamilyFit(drivers, team_years, beta, sigma2 * Minv, kappa, sigma2, with_grid, target_year)
+    return FamilyFit(drivers, team_years, beta, sigma2 * Minv, kappa, sigma2, with_grid, target_year, target_blk)
 
 
 def _lp_for_rows(fit, rows, with_grid):
@@ -371,14 +404,16 @@ def calibrate_family(obs, weekends, params, prior_team, with_grid):
 class DnfModel:
     """Team reliability x driver incident multiplier, Bayesian-shrunk, regime-aware."""
 
-    def __init__(self, sessions, now_t, target_year, params, a_team=20.0, a_driver=5.0):
+    def __init__(self, sessions, now_t, target_year, params, a_team=None, a_driver=None):
+        a_team = params.dnf_a_team if a_team is None else a_team
+        a_driver = params.dnf_a_driver if a_driver is None else a_driver
         rr = sessions[sessions["session"] == "R"] if not sessions.empty else sessions
         self.p0 = 0.07
         self.team_p, self.driver_mult = {}, {}
         if rr is not None and len(rr) >= 40:
-            w = 0.5 ** ((now_t - rr["t"].values) / (params.half_life * 2.0))
+            w = 0.5 ** ((now_t - rr["t"].values) / (params.half_life * params.dnf_half_life_mult))
             w = w * np.where(rr["year"].map(_regime) == _regime(target_year), 1.0, 0.35)
-            self.p0 = float(np.clip((w * rr["dnf"].values).sum() / w.sum(), 0.03, 0.15))
+            self.p0 = float(np.clip((w * rr["dnf"].values).sum() / w.sum(), params.p0_min, params.p0_max))
             rr = rr.assign(w=w)
             for team, g in rr.groupby("team"):
                 prior = self.p0 * RELIABILITY_PRIOR.get(team, 1.1)

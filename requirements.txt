@@ -7,3 +7,5 @@ scikit-learn
 xgboost
 # tests:
 pytest
+# experiment tracking (mlflow_experiments.py, experiments/):
+mlflow

@@ -6,3 +6,6 @@ venv/
 raw_historical_data.json
 raw_2026_results.json
 .env
+mlflow.db
+mlruns/
+mlartifacts/

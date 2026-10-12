@@ -290,8 +290,8 @@ def build_from_meetings(meetings):
         if built is None:
             continue
         rows, pit_rows = built
-        if not rows:
-            continue
+        if not rows or not {"Q", "R"} <= {r["session"] for r in rows}:
+            continue                      # a weekend without both Q and R can't be scored or modelled
         year = m["year"]
         order_in_year[year] = order_in_year.get(year, 0) + 1
         rnd = historical_round(year, m["location"]) or order_in_year[year]
