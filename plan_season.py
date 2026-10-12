@@ -37,7 +37,7 @@ DEFAULT_SPEC = {"family": "xgb", "hp": {"n_estimators": 618, "max_depth": 1, "le
 def load_specs(path):
     if path and os.path.exists(path):
         d = FP.load_spec(path)
-        return d["specs"], (d.get("c_sim", 0.5), d.get("bonus_alpha", 0.3), d.get("planning_blend")), d.get("name", os.path.basename(path))
+        return FP.expand_seeds(d["specs"]), (d.get("c_sim", 0.5), d.get("bonus_alpha", 0.3), d.get("planning_blend")), d.get("name", os.path.basename(path))
     return [DEFAULT_SPEC], (0.5, 0.3, None), "built-in default (no results/s26_final_spec.json yet)"
 
 

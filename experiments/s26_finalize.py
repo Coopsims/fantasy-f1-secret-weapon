@@ -9,7 +9,8 @@ from experiments.s26_search import _specs_from_log
 if __name__ == "__main__":
     deploy_log, families = sys.argv[1], sys.argv[2].split(",")
     best = _specs_from_log(deploy_log)
-    specs = [best[f] for f in families]
+    n_seeds = int(os.environ.get("N_SEEDS", "5"))      # experiments/s26_seed_avg.py: RMSE unchanged, removes seed luck
+    specs = [{**best[f], "n_seeds": n_seeds} for f in families]
     out = {
         "name": f"2026 deploy: mean({', '.join(families)}) tuned on all 17 gamedays (walk-forward, official points)",
         "specs": specs,
@@ -20,7 +21,9 @@ if __name__ == "__main__":
                      "vs previous best 15.01; pick-5 value 0.79 vs 0.71. Constructors derived (c_sim 0): RMSE ~20.6 vs simulator "
                      "22.0-22.2 on both halves. Decisions: planning blend 0.5 model + 0.3 simulator + 0.2 form played the 2026 "
                      "season best walk-forward (4151 = 72% of the 5741 optimum; model alone 3953, simulator+form 3955, "
-                     "simulator 3330) - in-sample, one season."),
+                     "simulator 3330) - in-sample, one season. Seeds: 5 per family averaged (even gamedays 14.621 vs "
+                     "single-seed mean 14.624, -0.001 [-0.027, +0.022]; a single seed moves a driver forecast by ~0.3 pts "
+                     "and two seeds share 4.82 of their top 5 on average - averaging removes that luck from decisions)."),
     }
     json.dump(out, open("results/s26_final_spec.json", "w"), indent=1, default=float)
     print(json.dumps({k: v for k, v in out.items() if k != "specs"}, indent=1))

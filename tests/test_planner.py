@@ -84,3 +84,30 @@ def test_solver_uses_no_negative_when_its_expected_gain_is_large():
 def test_autopilot_gain_is_positive_for_a_spread_team():
     pts = np.zeros(len(FP.ENTITIES)); pts[:5] = [30, 25, 20, 10, 5]
     assert FP.autopilot_gain(frozenset(range(5)) | {22, 23}, pts) > 2.0
+
+
+def test_expand_seeds_makes_one_member_per_seed():
+    import f1_planner as FP
+    specs = [{"family": "xgb", "n_seeds": 3, "hp": {}}, {"family": "extratrees", "hp": {}}]
+    out = FP.expand_seeds(specs)
+    assert [(s["family"], s["seed"]) for s in out] == [("xgb", 0), ("xgb", 1), ("xgb", 2), ("extratrees", 0)]
+    assert all("n_seeds" not in s for s in out)
+
+
+def test_no_free_transfers_carry_out_of_a_limitless_week():
+    # game FAQ: after a Limitless week the next race has only the regular 2 free transfers (no carry-over)
+    from f1_strategy import evaluate_plan
+    pts, price = _world(seed=5)
+    team = _cheap_team(price)
+    idx = frozenset(FP.ENTITIES.index(n) for n in team)
+    pts[:] = 0.0
+    pts[:, list(idx)] = 50.0
+    outsiders = [i for i in range(len(FP.ENTITIES)) if FP.IS_DRIVER[i] and i not in idx][:3]
+    pts[2, outsiders] = 200.0                                # race 3 rewards three new drivers
+    st = State(prev_team=idx, wealth=float(price[0][list(idx)].sum()) + 300, free_transfers=3, chips_left=())
+    p = solve_strategy(pts, price[:3], FP.IS_DRIVER, Rules(), st, frozen=(1,))
+    assert p.penalties[2] == 10.0 and set(outsiders) <= set(p.teams[2])
+    tot, *_ = evaluate_plan(p.teams, p.boosts, p.chips, pts, price[:3], FP.IS_DRIVER, Rules(), st, frozen=(1,))
+    assert abs(tot - p.total) < 1e-6
+    _, _, pen_unfrozen, *_ = evaluate_plan(p.teams, p.boosts, p.chips, pts, price[:3], FP.IS_DRIVER, Rules(), st)
+    assert pen_unfrozen[2] == 0.0                            # without the rule the 3rd transfer would have been free

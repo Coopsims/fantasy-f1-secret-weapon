@@ -120,6 +120,12 @@ def constructor_bonus(op, alpha=0.3):
     return out
 
 
+def expand_seeds(specs):
+    """A spec with "n_seeds": k becomes k copies with seeds 0..k-1, averaged like any other ensemble member (the
+    forecast is linear in each tree's prediction, so this equals averaging the seeds inside each family)."""
+    return [{**{k: v for k, v in sp.items() if k != "n_seeds"}, "seed": i} for sp in specs for i in range(int(sp.get("n_seeds", 1)))]
+
+
 def load_spec(path=SPEC_FILE):
     with open(path) as f:
         return json.load(f)
@@ -297,7 +303,8 @@ def _plan(pts, price_path, team=None, bank=0.0, budget=100.0, free=2, chips=(), 
             true[:, ENTITIES.index(canon_entity(n))] += big
         for n in locked_in:
             true[:, ENTITIES.index(canon_entity(n))] -= big
-        tot, per, pen, trs, ok = evaluate_plan(p.teams, p.boosts, p.chips, true, price_path[:H], IS_DRIVER, rules, state)
+        tot, per, pen, trs, ok = evaluate_plan(p.teams, p.boosts, p.chips, true, price_path[:H], IS_DRIVER, rules, state,
+                                                   frozen=_frozen)
         p = replace(p, round_points=list(per), total=float(tot))
     return p, state
 

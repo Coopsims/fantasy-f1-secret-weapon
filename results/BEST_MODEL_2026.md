@@ -5,7 +5,8 @@
 Driver forecast = mean of two tuned tree models (extra-trees and XGBoost) on the full pre-lock feature panel, each
 blended with the weekend simulator (its weight decays as 2026 data accumulate) and a little recent official form.
 Constructor forecast = its two drivers' forecasts + its recent official bonus (qualifying bonus, pit stops, ...).
-Spec: `results/s26_final_spec.json`; registered in MLflow as `f1-fantasy-points-2026` (alias in the registry).
+Each tree model is the average of 5 random seeds. Spec: `results/s26_final_spec.json`; registered in MLflow as
+`models:/f1-fantasy-points-2026@champion` (v4).
 
 What the tuning chose (2026 walk-forward, official points as truth): train on all history (no recency decay), give
 2026 rows a little extra weight, train 2026 rows on official points (XGBoost) or reconstructed (extra-trees), simulator
@@ -60,11 +61,16 @@ forecast, CI includes 0); `--sharp` plans on the raw model. Caveat: chosen among
 Tuning the simulator itself on 2026 (best odd setting -0.07, even +0.08); LightGBM (overfit: 15.10 held out);
 random forest / CatBoost (14.81-14.91); chip reserve values in the rolling plan.
 
+Seed averaging (`experiments/s26_seed_avg.py`, 5 seeds per family, even gamedays): RMSE 14.621 vs 14.624 for one seed
+on average (-0.001, CI -0.027 to +0.022) - no accuracy change. One seed moves a driver's forecast by ~0.3 points and
+two seeds share 4.82 of their top 5 on average, so it is deployed to keep seed luck out of close decisions (the rule
+fixed before the run: adopt if not worse).
+
 ## The deployed version
 Same structure re-tuned on all 17 gamedays (200 Optuna trials per family, warm-started, leak-free panel): XGBoost
 (feature set without track features, trained on official points for 2026 rows, recency half-life 100 weekends) and
 extra-trees (no track features, reconstructed points), averaged. In-sample RMSE 14.47 (not an honest number - use
-14.62 above). Registered: `models:/f1-fantasy-points-2026@champion` (v3). Late in the season the simulator's weight
+14.62 above). Registered: `models:/f1-fantasy-points-2026@champion` (v4 = v3 with 5 seeds per family). Late in the season the simulator's weight
 inside the forecast is ~0.01-0.02 (the trees carry it); the planning blend adds it back for decisions.
 
 What drives it most (feature importance): qualifying form (team and driver qualifying-position EWMAs, qualifying Elo),
@@ -73,9 +79,41 @@ has run). The data-derived track features and similar-track affinities did not s
 
 ## Your next race (US GP, Austin; lock: Qualifying, Sat 24 Oct 21:00 UTC / 15:00 MDT)
 From Hamilton, Antonelli, Colapinto, Lawson, Bearman, Ferrari, Racing Bulls (bank $2.4m, 3 free transfers):
-OUT Hamilton, Colapinto, Racing Bulls - IN Mercedes, Hulkenberg, Lindblad, 2x on Antonelli: expected 214.5 vs 181.6
-for keeping the team (no transfer penalty). Every model tried tonight gave this same move. Re-run after Friday's
+OUT Hamilton, Colapinto, Racing Bulls - IN Mercedes, Hulkenberg, Lindblad, 2x on Antonelli: expected 212.4 vs 181.4
+for keeping the team (no transfer penalty). Every model tried tonight gave this same move (incl. the 5-seed one). Re-run after Friday's
 practice (`python fetch_openf1_full.py` then `plan_next_race.py`) - practice pace is one of the stronger inputs.
 
-Rest-of-season plans for each chip scenario: `results/SEASON_PLAN.md`.
+Rest-of-season plans for each chip scenario (your team; which chips you have left is unknown to me) -
+`results/SEASON_PLAN.md`:
+
+| chips available | expected points, 6 races | where the plan plays them |
+|---|---|---|
+| none | 994 | - |
+| 3x Boost | 1024 | US GP |
+| No Negative | 1006 | US GP |
+| Wildcard | 996 | Las Vegas |
+| Limitless | 1050 | Mexico City |
+| all four | 1091 | 3x US GP, Limitless Mexico City, Wildcard Sao Paulo, No Negative Las Vegas |
+
+Autopilot is worth about 6 points in a typical week (play it in a week with no other chip); Final Fix is not modelled.
+
+## Game rules (checked against the official FAQ)
+2 free transfers per race, one unused carries over (max 3), -10 per extra; transfers counted as the net change; one
+chip per race; after a Limitless week no free transfers carry over (the solver let them carry until tonight - fixed,
+with a test; this is why Limitless moved from Austin to Mexico City). Table: `docs/FANTASY_FEED_NOTES.md`.
+
+## How to use it
+Any team, any prices (default: the game's current prices from its feed; override any with `--price NAME=V`):
+
+    python fetch_fantasy_feed.py          # after each race: official points + prices
+    python fetch_openf1_full.py           # after each session (practice adds to the forecast; lock is Qualifying)
+
+    # best moves for the next race from your team (exact solver, plans 3 races ahead, acts on the first)
+    python plan_next_race.py --team Hamilton Antonelli Colapinto Lawson Bearman Ferrari "Racing Bulls" \
+        --bank 2.4 --free 3 --chips 3x_booster limitless autopilot [--keep X] [--avoid Y] [--price Antonelli=26.5]
+
+    # the best line for the rest of the season from any team (or --budget 100 for a fresh team)
+    python plan_season.py --team ... --bank 2.4 --free 3 --chips wildcard limitless [--csv plan.csv]
+
+The first run after new data refits the 10 models (~1 minute); later runs use the cache (a few seconds).
 

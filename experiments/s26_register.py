@@ -14,12 +14,13 @@ if __name__ == "__main__":
     P = D["panel"]
     t_now = int(P["t"].max()) + 1
     models, feats = [], []
-    for sp in spec["specs"]:
+    members = FP.expand_seeds(spec["specs"])
+    for sp in members:
         m, f = FP.fit_tree(sp, P, t_now)
         models.append(m); feats.append(f)
-    model = FP.FantasyPointsModel(models, feats, spec["specs"])
+    model = FP.FantasyPointsModel(models, feats, members)
     sample = P[P["t"] == P["t"].max()].head(5)
-    cols = sorted(set(sum(feats, [])) | {"sim"} | {f"ew_off_{sp['ewma_alpha']}" for sp in spec["specs"]})
+    cols = sorted(set(sum(feats, [])) | {"sim"} | {f"ew_off_{sp['ewma_alpha']}" for sp in members})
     alias = os.environ.get("ALIAS", "champion")
     mlflow_ = X._mlflow()
     with mlflow_.start_run(run_name=f"register {spec['name'][:80]}"):

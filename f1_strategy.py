@@ -73,7 +73,7 @@ def _chip_pts(vals, chip):
 
 
 def evaluate_plan(plan_teams, plan_boosts, plan_chips, pts, price, is_driver, rules, state=None,
-                  discount=None):
+                  discount=None, frozen=()):
     """
     Score a plan under the rules.  Returns (total, per_round_points, penalties, transfers,
     feasible).  This is the single definition of the rules that the MILP and the brute
@@ -102,6 +102,8 @@ def evaluate_plan(plan_teams, plan_boosts, plan_chips, pts, price, is_driver, ru
         # free-transfer bank for the next weekend
         used = 0 if (prev is None or chip == "wildcard") else min(n_in, ft)
         ft = min(rules.max_bank, ft - used + rules.free_per_round)
+        if t in frozen:                    # Limitless week: no free transfers carry into the next race (game FAQ)
+            ft = rules.free_per_round
         v = np.array([pts[t][e] for e in sorted(team)], dtype=float)
         v = _chip_pts(v, chip)
         bp = _chip_pts(np.array([pts[t][boost]]), chip)[0]
@@ -303,6 +305,8 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
             raise ValueError("cannot freeze the first round of a fresh team")
         ub[idx[("in", t)]] = 0
         ub[[idx[("wc", t)][0], idx[("nn", t)][0]]] = 0
+        if t + 1 < T:                      # Limitless week: no free transfers carry into the next race (game FAQ)
+            ub[idx[("ft", t + 1)][0]] = min(ub[idx[("ft", t + 1)][0]], rules.free_per_round)
         ub[idx[("b3", t)]] = 0
     # wealth at round 0
     W0 = state.wealth if state.wealth is not None else rules.budget
@@ -339,7 +343,7 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
         elif xs[idx[("b3", t)]].max() > 0.5:
             chip = "3x_booster"
         chips.append(chip)
-    total, per, pen, trs, ok = evaluate_plan(teams, boosts, chips, pts, price, is_driver, rules, state, discount)
+    total, per, pen, trs, ok = evaluate_plan(teams, boosts, chips, pts, price, is_driver, rules, state, discount, frozen)
     if nn_gain is not None:                  # expected value of No Negative under uncertainty, not just on the means
         for t in range(T):
             if chips[t] == "no_negative":
