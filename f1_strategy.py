@@ -120,12 +120,19 @@ def evaluate_plan(plan_teams, plan_boosts, plan_chips, pts, price, is_driver, ru
 
 
 def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
-                   time_limit=300, mip_rel_gap=0.0, verbose=False):
+                   time_limit=300, mip_rel_gap=0.0, verbose=False,
+                   terminal_price=None, value_weight=0.0, chip_cost=None):
     """
     Maximise (discounted) points over all weekends.
 
     pts, price : arrays (T, E) - points scored / price paid before each weekend.
     is_driver  : bool array (E,)
+    terminal_price, value_weight : planning aids for a rolling horizon - reward each $1m of
+        team-value growth over the horizon (price[t+1] - price[t] of every team held, with
+        terminal_price after the last weekend) with `value_weight` points.
+    chip_cost  : {chip: points} subtracted when a chip is used (keeps chips in reserve
+        unless the planned gain beats it).
+    Neither changes how a plan is *scored*: plan.total is always true points (evaluate_plan).
     Returns a Plan (plan.optimal is True when optimality is proven).
     """
     pts = np.asarray(pts, float)
@@ -210,6 +217,13 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
         c[idx[("w", t)]] -= d * np.maximum(-pts[t], 0)
         c[idx[("bn", t)]] -= d * np.maximum(-pts[t], 0) * is_driver
         c[idx[("ex", t)]] += d * rules.penalty
+        if value_weight:
+            nxt = price[t + 1] if t + 1 < T else (terminal_price if terminal_price is not None else price[t])
+            c[idx[("x", t)]] -= d * value_weight * (np.asarray(nxt, float) - price[t])
+        if chip_cost:
+            c[idx[("wc", t)]] += d * chip_cost.get("wildcard", 0.0)
+            c[idx[("nn", t)]] += d * chip_cost.get("no_negative", 0.0)
+            c[idx[("b3", t)]] += d * chip_cost.get("3x_booster", 0.0) * is_driver
 
     rows, lo_, hi_ = [], [], []
 

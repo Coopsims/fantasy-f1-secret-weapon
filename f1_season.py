@@ -22,7 +22,8 @@ the same basis).  Pass --official-points to use a CSV of the game's real points.
 
 import argparse
 import os
-from dataclasses import replace
+import pickle
+from dataclasses import dataclass, replace
 
 import numpy as np
 import pandas as pd
@@ -86,48 +87,27 @@ def season_actuals(res, year, official=None):
             "pit_known": np.array(pit_known)}
 
 
-def _tier_change(rank_pct, price):
-    tier = 0.3 if price >= 20.0 else 0.6
-    lvl = 1.0 if rank_pct >= 0.75 else (1 / 3 if rank_pct >= 0.5 else (-1 / 3 if rank_pct >= 0.25 else -1.0))
-    return round(tier * lvl, 1)
-
-
-def estimate_next_prices(prices, pts_row):
-    """Approximate the game's tier-based price move from one weekend's points (per type)."""
-    out = prices.copy()
-    for mask in (IS_DRIVER, ~IS_DRIVER):
-        idx = np.flatnonzero(mask)
-        vals = pts_row[idx]
-        for i in idx:
-            pct = (vals <= pts_row[i]).mean()
-            out[i] = max(4.0, round(prices[i] + _tier_change(pct, prices[i]), 1))
-    return out
-
-
-def price_table(rounds, pts, price_csv=None):
+def price_table(rounds, pts, price_csv=None, verbose=False, return_rule=False):
     """
-    price[i] = price before the i-th weekend (what you pay when you transfer for it).
-    Uses the price-history CSV (round k = prices after round k) where present and
-    estimates the rest from actual points.  Returns (price matrix, n_estimated).
+    price[i] = price before the i-th raced weekend (what you pay when you transfer for it).
+
+    Real prices from the price-history CSV (round k = prices after calendar round k) are
+    used wherever they exist; the weekends in between are reconstructed by replaying the
+    game's price-change rule (f1_prices), with the rule's unknown cut-offs fitted to the
+    real prices.  Cancelled rounds are handled: a label is mapped to the number of raced
+    weekends completed by then.  Returns (price matrix, n_estimated).
     """
+    from f1_prices import checkpoints_from_csv, reconstruct
     base = np.array([DEFAULT_DRIVER_PRICES[d] for d in DRIVERS] + [DEFAULT_CONSTRUCTOR_PRICES[t] for t in TEAMS])
-    table = {}
+    anchors = {}
     if price_csv and os.path.exists(price_csv):
-        df = pd.read_csv(price_csv)
-        for k, g in df.groupby("round"):
-            table[int(k)] = np.array([g.set_index("name")["price"].get(n, np.nan) for n in ENTITIES])
-    prices, est = [], 0
-    cur = table.get(0, base).copy()
-    cur = np.where(np.isnan(cur), base, cur)
-    for i, rnd in enumerate(rounds):
-        k = rnd - 1
-        if k in table:
-            cur = np.where(np.isnan(table[k]), cur, table[k])
-        elif i > 0:
-            cur = estimate_next_prices(prices[-1], pts[i - 1])
-            est += 1
-        prices.append(cur.copy())
-    return np.array(prices), est
+        anchors = checkpoints_from_csv(pd.read_csv(price_csv), rounds, ENTITIES)
+    P, info = reconstruct(np.asarray(pts, float), base, anchors, verbose=verbose)
+    R = len(rounds)
+    n_est = sum(1 for j in range(1, R) if j not in anchors or np.isnan(anchors[j]).any())
+    if return_rule:
+        return P[:R], n_est, info["rule"]
+    return P[:R], n_est
 
 
 # ──────────────────────────────────────────────────────────────
@@ -192,20 +172,75 @@ def replay(res, year=2026, n_sims=4000, horizon=3, params=None, verbose=True, of
 # 2. Play the season with only the information available at the time
 # ──────────────────────────────────────────────────────────────
 
-def play_season(rep, prices, rules=None, horizon=3, discount=0.7, use_chips=True, verbose=True):
-    """Rolling-horizon MILP on forecasts; realised results/prices revealed one weekend at a time."""
+@dataclass(frozen=True)
+class PlayPolicy:
+    """How the no-hindsight player turns forecasts into decisions (all tunable)."""
+    horizon: int = 3            # raced weekends planned ahead
+    discount: float = 0.7       # weight of each later weekend in the plan
+    price_aware: bool = True    # project prices with the game's rule instead of holding them flat
+    value_weight: float = 0.0   # points per $1m of projected team-value growth
+    chip_cost: float = 0.0      # reserve value of an unused chip (points)
+    ewma_blend: float = 0.0     # shrink the forecast toward an EWMA of actual points
+    use_chips: bool = True
+
+
+def project_prices(price_now, past_ppm, fc_pts, rule):
+    """
+    Price path over a planning horizon using the game's rule.
+    price_now : (E,) actual price before the first planned weekend
+    past_ppm  : list of (E,) points-per-$m of the races already run (latest last)
+    fc_pts    : (H, E) forecast points of the planned weekends
+    Returns (H + 1, E): prices before each planned weekend, then after the last one.
+    """
+    from f1_prices import step_prices
+    P = [np.asarray(price_now, float)]
+    ppm = list(past_ppm)
+    for k in range(len(fc_pts)):
+        ppm.append(np.asarray(fc_pts[k], float) / np.maximum(P[-1], 0.1))
+        P.append(step_prices(P[-1], ppm[-rule.window:], rule))
+    return np.array(P)
+
+
+def _ewma(x, alpha=0.2):
+    out = x[0].astype(float).copy()
+    for row in x[1:]:
+        out = alpha * row + (1 - alpha) * out
+    return out
+
+
+def play_season(rep, prices, rules=None, horizon=3, discount=0.7, use_chips=True, verbose=True,
+                policy=None, rule=None):
+    """
+    Rolling-horizon MILP on the forecasts available at the time; real results and real
+    prices are revealed one weekend at a time.  `policy` (PlayPolicy) overrides the
+    horizon / discount / use_chips arguments.  `rule` (f1_prices.PriceRule) is used for
+    price projection when policy.price_aware.
+    """
+    from f1_prices import PriceRule
     rules = rules or Rules()
+    policy = policy or PlayPolicy(horizon=horizon, discount=discount, use_chips=use_chips, price_aware=False)
+    rule = rule or PriceRule()
     act = rep["actuals"]
     R = len(act["rounds"])
     state = State(prev_team=None, wealth=rules.budget, free_transfers=rules.free_per_round,
-                  chips_left=rules.chips if use_chips else ())
+                  chips_left=rules.chips if policy.use_chips else ())
+    chip_cost = ({c: policy.chip_cost for c in rules.chips} if policy.chip_cost else None)
     log, total = [], 0.0
     for i, rnd in enumerate(act["rounds"]):
-        H = [k for k in range(horizon) if i + k < R and (rnd, act["rounds"][i + k]) in rep["forecasts"]]
+        H = [k for k in range(policy.horizon)
+             if i + k < R and (rnd, act["rounds"][i + k]) in rep["forecasts"]]
         pts_h = np.array([rep["forecasts"][(rnd, act["rounds"][i + k])]["mean"] for k in H])
-        price_h = np.array([prices[i]] * len(H))                      # future prices unknown: hold flat
-        disc = discount ** np.arange(len(H))
-        plan = solve_strategy(pts_h, price_h, IS_DRIVER, rules, state, disc, time_limit=60, mip_rel_gap=1e-6)
+        if policy.ewma_blend and i > 0:
+            pts_h = (1 - policy.ewma_blend) * pts_h + policy.ewma_blend * _ewma(act["pts"][:i])[None, :]
+        if policy.price_aware:
+            past = [act["pts"][j] / np.maximum(prices[j], 0.1) for j in range(max(0, i - rule.window + 1), i)]
+            path = project_prices(prices[i], past, pts_h, rule)
+            price_h, terminal = path[:-1], path[-1]
+        else:
+            price_h, terminal = np.array([prices[i]] * len(H)), prices[i]
+        disc = policy.discount ** np.arange(len(H))
+        plan = solve_strategy(pts_h, price_h, IS_DRIVER, rules, state, disc, time_limit=60, mip_rel_gap=1e-6,
+                              terminal_price=terminal, value_weight=policy.value_weight, chip_cost=chip_cost)
         team, boost, chip = plan.teams[0], plan.boosts[0], plan.chips[0]
         # realise weekend i
         r, per, pen, trs, ok = evaluate_plan([team], [boost], [chip], act["pts"][i][None, :],
@@ -229,6 +264,64 @@ def play_season(rep, prices, rules=None, horizon=3, discount=0.7, use_chips=True
     return {"log": pd.DataFrame(log), "total": total}
 
 
+def _play_one(args):
+    rep, prices, rules, policy, rule = args
+    out = play_season(rep, prices, rules, verbose=False, policy=policy, rule=rule)
+    return out["total"], list(out["log"]["points"])
+
+
+def default_policy_grid():
+    from itertools import product
+    grid = []
+    for h, d, va, vw, cc, ew in product((1, 2, 3, 4), (0.6, 0.85), (False, True), (0.0, 5.0, 15.0),
+                                        (0.0, 15.0), (0.0, 0.3)):
+        if not va and vw:
+            continue                      # value weight needs projected prices
+        grid.append(PlayPolicy(horizon=h, discount=d, price_aware=va, value_weight=vw, chip_cost=cc, ewma_blend=ew))
+    return grid
+
+
+def tune_play(rep, prices, rules=None, rule=None, grid=None, workers=None, optimum=None, verbose=True):
+    """
+    Play the season once per policy and measure the gap to the hindsight optimum.
+
+    Selecting the policy on the same weekends it is scored on flatters it, so two honest
+    columns are added: the gap on the first and second half of the season separately
+    (`sel_first_half` picks on the first half and reports how that pick did on the second).
+    """
+    from concurrent.futures import ProcessPoolExecutor
+    rules = rules or Rules()
+    grid = grid or default_policy_grid()
+    act = rep["actuals"]
+    if optimum is None:
+        optimum, _ = hindsight_optimum(act, prices, rules)
+    opt_round = np.array(optimum.round_points)
+    half = len(opt_round) // 2
+    jobs = [(rep, prices, rules, p, rule) for p in grid]
+    if workers == 1:
+        results = [_play_one(j) for j in jobs]
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            results = list(ex.map(_play_one, jobs))
+    rows = []
+    for p, (tot, per) in zip(grid, results):
+        per = np.array(per)
+        rows.append({**p.__dict__, "points": tot, "delta": optimum.total - tot,
+                     "delta_first_half": opt_round[:half].sum() - per[:half].sum(),
+                     "delta_second_half": opt_round[half:].sum() - per[half:].sum()})
+    df = pd.DataFrame(rows).sort_values("delta").reset_index(drop=True)
+    if verbose:
+        print(f"\n  Hindsight optimum {optimum.total:.0f}.  {len(df)} policies played.  Best 10 by gap:")
+        cols = ["horizon", "discount", "price_aware", "value_weight", "chip_cost", "ewma_blend", "points", "delta",
+                "delta_first_half", "delta_second_half"]
+        print(df[cols].head(10).to_string(index=False))
+        pick = df.sort_values("delta_first_half").iloc[0]
+        print(f"\n  Honest check: best policy on the first {half} weekends -> gap on the remaining "
+              f"{len(opt_round) - half}: {pick['delta_second_half']:.0f} "
+              f"(the in-sample best scores {df.iloc[0]['delta_second_half']:.0f} there).")
+    return df
+
+
 # ──────────────────────────────────────────────────────────────
 # 3. Hindsight optimum
 # ──────────────────────────────────────────────────────────────
@@ -249,23 +342,39 @@ def hindsight_optimum(act, prices, rules=None, time_limit=600):
 # CLI
 # ──────────────────────────────────────────────────────────────
 
+def cached_replay(res, year, n_sims, horizon, params=None, official=None, cache=None):
+    """replay(), stored in / loaded from `cache` (pickle) so policy tuning does not refit the model."""
+    if cache and os.path.exists(cache):
+        with open(cache, "rb") as f:
+            rep = pickle.load(f)
+        if rep.get("_key") == (year, n_sims, horizon, len(res.weekends)):
+            print(f"  (replay loaded from {cache})")
+            return rep
+    rep = replay(res, year, n_sims, horizon, params, official=official)
+    rep["_key"] = (year, n_sims, horizon, len(res.weekends))
+    if cache:
+        with open(cache, "wb") as f:
+            pickle.dump(rep, f)
+    return rep
+
+
 def run_all(res, year, prices_csv=None, official_csv=None, n_sims=4000, horizon=3,
-            rules=None, out_prefix="season", params=None):
+            rules=None, out_prefix="season", params=None, policy=None, cache=None):
     official = pd.read_csv(official_csv) if official_csv else None
     print("\n══ 1. Walk-forward replay (each weekend rebuilt from earlier weekends only) ══")
-    rep = replay(res, year, n_sims, horizon, params, official=official)
+    rep = cached_replay(res, year, n_sims, max(horizon, policy.horizon if policy else 0), params, official, cache)
     acc = rep["accuracy"]
     if acc.empty:
         raise SystemExit(f"No completed {year} weekends in the data.")
     act = rep["actuals"]
-    prices, n_est = price_table(act["rounds"], act["pts"], prices_csv)
+    prices, n_est, rule = price_table(act["rounds"], act["pts"], prices_csv, verbose=True, return_rule=True)
     print(f"\n  Driver MAE {acc.driver_mae.mean():.2f} vs naive-last-3 {acc.driver_mae_naive3.mean():.2f}; "
           f"rank-corr {acc.driver_rankcorr.mean():.2f}; 80% cover {acc.driver_cover80.mean():.2f}; "
           f"constructor MAE {acc.constructor_mae.mean():.2f} vs {acc.constructor_mae_naive3.mean():.2f}")
     if n_est:
         print(f"  ⚠ {n_est} weekend(s) of prices were ESTIMATED (tier model); supply {prices_csv or 'a price CSV'} for exact budgets.")
     print("\n══ 2. Playing the season with only the information available at the time ══")
-    play = play_season(rep, prices, rules, horizon)
+    play = play_season(rep, prices, rules, horizon, policy=policy, rule=rule)
     print("\n══ 3. Hindsight-optimal season (exact, branch-and-bound) ══")
     plan, opt = hindsight_optimum(act, prices, rules)
     for _, r in opt.iterrows():
@@ -287,7 +396,8 @@ def run_all(res, year, prices_csv=None, official_csv=None, n_sims=4000, horizon=
 
 def _cli():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["all"])
+    ap.add_argument("cmd", choices=["all", "tune"],
+                    help="all = replay + play + optimum; tune = search play policies for the smallest gap to the optimum")
     ap.add_argument("--year", type=int, default=2026)
     ap.add_argument("--prices", default="fantasy_f1_prices.csv")
     ap.add_argument("--official-points", help="CSV(round,name,points) of the game's real points")
@@ -295,6 +405,8 @@ def _cli():
     ap.add_argument("--horizon", type=int, default=3)
     ap.add_argument("--free-per-round", type=int, default=2)
     ap.add_argument("--max-bank", type=int, default=3)
+    ap.add_argument("--workers", type=int, default=None, help="parallel processes for tune")
+    ap.add_argument("--cache", default=None, help="pickle file to store/reuse the replay (default season_<year>_replay.pkl)")
     ap.add_argument("--demo", action="store_true", help="synthetic data (no files needed)")
     ap.add_argument("--out", default="season")
     a = ap.parse_args()
@@ -308,7 +420,20 @@ def _cli():
             raise SystemExit("No race data found. Need raw_historical_data.json + raw_2026_results.json "
                              "(run f1_trainer.py / the optimizer with OpenF1 access) or the training CSV.")
     rules = Rules(free_per_round=a.free_per_round, max_bank=a.max_bank)
-    run_all(res, a.year, a.prices, a.official_points, a.sims, a.horizon, rules, a.out)
+    cache = a.cache or (None if a.demo else f"season_{a.year}_replay.pkl")
+    if a.cmd == "all":
+        run_all(res, a.year, a.prices, a.official_points, a.sims, a.horizon, rules, a.out, cache=cache)
+        return
+    official = pd.read_csv(a.official_points) if a.official_points else None
+    grid = default_policy_grid()
+    rep = cached_replay(res, a.year, a.sims, max(p.horizon for p in grid), official=official, cache=cache)
+    act = rep["actuals"]
+    prices, n_est, rule = price_table(act["rounds"], act["pts"], a.prices, verbose=True, return_rule=True)
+    if n_est:
+        print(f"  ⚠ {n_est} weekend(s) of prices reconstructed by the rule (not real prices).")
+    df = tune_play(rep, prices, rules, rule, grid, workers=a.workers)
+    df.to_csv(f"{a.out}_policy_search.csv", index=False)
+    print(f"\n  Wrote {a.out}_policy_search.csv")
 
 
 if __name__ == "__main__":

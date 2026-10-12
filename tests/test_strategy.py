@@ -74,3 +74,23 @@ def test_transfer_penalty_is_charged():
     # boost doubles: stay on driver0 = 10 + 0 ; swap in wk2 = 10 + 24 - 10 = 24 ; swap in wk1 = 0 + 24 - 10 = 14
     assert plan.total == pytest.approx(5 * 2 + 12 * 2 - 10)
     assert plan.penalties[1] == 10 and plan.transfers_in[1] == 1
+
+
+def test_value_weight_prefers_rising_assets_on_ties():
+    isd = np.array([True, True, False])
+    pts = np.array([[10.0, 10.0, 5.0]])
+    price = np.array([[10.0, 10.0, 10.0]])
+    terminal = np.array([9.4, 10.6, 10.0])           # driver 1 is about to rise
+    rules = Rules(n_drivers=1, n_constructors=1, budget=30.0, chips=())
+    st = State(free_transfers=1, chips_left=())
+    plain = solve_strategy(pts, price, isd, rules, st)
+    valued = solve_strategy(pts, price, isd, rules, st, terminal_price=terminal, value_weight=10.0)
+    assert 1 in valued.teams[0] and 0 not in valued.teams[0]
+    assert valued.total == plain.total                 # true points unchanged by the planning aid
+
+
+def test_chip_cost_keeps_chips_in_reserve():
+    pts, price, isd, rules = _instance(1, T=3)
+    free = solve_strategy(pts, price, isd, rules)
+    held = solve_strategy(pts, price, isd, rules, chip_cost={c: 1e4 for c in rules.chips})
+    assert any(free.chips) and not any(held.chips)

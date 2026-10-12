@@ -59,3 +59,25 @@ def test_model_play_is_feasible_every_week(run):
     assert len(play["log"]) == 5
     assert all(len(t) == 7 for t in play["log"]["team"])
     assert play["log"]["chip"].dropna().is_unique
+
+
+def test_projected_prices_follow_the_rule():
+    from f1_prices import PriceRule, simulate
+    rng = np.random.default_rng(0)
+    start = rng.uniform(5, 30, 10).round(1)
+    pts = rng.normal(15, 10, (5, 10))
+    rule = PriceRule()
+    P = simulate(pts, start, rule)
+    past = [pts[j] / P[j] for j in range(2)]           # races 1-2 already run
+    proj = S.project_prices(P[2], past, pts[2:5], rule)
+    assert np.allclose(proj, P[2:6])
+
+
+def test_policy_variants_play_and_tune(run):
+    _, rep, prices = run
+    from f1_prices import PriceRule
+    grid = [S.PlayPolicy(horizon=1, price_aware=False), S.PlayPolicy(horizon=2, value_weight=5.0),
+            S.PlayPolicy(horizon=2, chip_cost=20.0, ewma_blend=0.3)]
+    df = S.tune_play(rep, prices, Rules(), PriceRule(), grid, workers=1, verbose=False)
+    assert len(df) == 3 and (df["delta"] >= -1e-6).all()
+    assert np.allclose(df["delta_first_half"] + df["delta_second_half"], df["delta"])

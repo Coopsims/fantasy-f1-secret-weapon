@@ -5,6 +5,9 @@ rate limit, response-size limit or pagination, and the API sends no rate-limit h
 
 ## Rate limits
 
+* **Stated by the user (2026-10-12): 6 requests per second and 60 per minute.** The per-minute cap is the binding one
+  for long pulls - about 1 request per second sustained - which matches everything observed below.
+
 * Limits are undocumented; I could not read them from the API (no rate-limit headers on normal responses).
   **Observed:**
   * 8 parallel worker threads (the default of `f1_trainer.collect_data` with a token) produced frequent HTTP 429s.

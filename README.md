@@ -20,6 +20,7 @@ python f1_weekend_model.py backtest --years 2025       # walk-forward accuracy o
 python f1_weekend_model.py tune --years 2025           # tune half-life / prior trust
 python f1_season.py all --year 2026                     # replay + play + hindsight-optimal season
 python f1_season.py all --demo                          # same, on synthetic data
+python f1_season.py tune --year 2026 --workers 8        # search play policies for the smallest gap to the optimum
 python fantasy_optimizer.py                            # interactive optimizer (menu 6 = weekend forecast)
 python -m pytest tests                                 # unit + integration tests
 ```
@@ -79,10 +80,28 @@ boost choice (2x / 3x) and what the **No Negative** chip is worth this weekend.
 | `f1_synthetic.py` | synthetic seasons with known truth (tests, demo) |
 | `f1_ml_predictor.py` | `predict_*` API used by the optimizer; back-ends `sim` (default) / `xgb` / `blend` via `F1_PREDICTOR` |
 | `f1_trainer.py` | original XGBoost pipeline (still works) |
+| `f1_prices.py` | rebuilds weekend-by-weekend prices with the game's price rule (3-race points-per-$m average, tiers at $19m, cut-offs 0.6 / 0.9 / 1.2), fitted to any real prices you have |
 | `f1_strategy.py` | exact season optimiser (MILP, validated against exhaustive enumeration): teams, boosts, transfers, free-transfer banking, wildcard / 3x / no-negative |
 | `f1_season.py` | walk-forward replay of a season (rebuilt each weekend from earlier weekends only), live-play simulation, hindsight optimum |
 | `openf1_utils.py` | OpenF1 client (token from `.env`: `OPENF1_USERNAME` / `OPENF1_PASSWORD`) |
 | `fantasy_optimizer.py` | transfers, chips, price changes; now volatility-, chip- and risk-aware |
+
+## Prices and the play policy
+
+Prices for weekends you did not record are rebuilt by `f1_prices.py` from the published
+2025 rule (FanAmp guide): tiers split at $19m (A: ±0.1/±0.3, B: ±0.2/±0.6); rating from the
+average points per $m over the last three races (each race's points over the price paid for
+it), cut-offs 0.6 / 0.9 / 1.2, with the early-season zero padding. Every real price in
+`fantasy_f1_prices.csv` is used as a checkpoint: the rule's cut-offs and tier split are fitted
+to reproduce them and the reconstruction snaps back to them. The run prints how well the fitted
+rule reproduces your real prices. Add the game's *current* prices as the latest round (optimizer
+menu 4 → scrape) to pin the end of the season too.
+
+`f1_season.py tune` replays the season once (cached in `season_<year>_replay.pkl`) and then plays it
+under many decision policies – horizon, discount, projected prices, value of team-value growth,
+chip reserve, forecast shrinkage – reporting each one's gap to the proven optimum. Picking the
+best policy on the same 17 weekends flatters it; the output also shows the gap when the policy is
+chosen on the first half of the season and scored on the second.
 
 ## Validation – read this
 
