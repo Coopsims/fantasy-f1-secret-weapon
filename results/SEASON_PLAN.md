@@ -1,15 +1,17 @@
-# Rest-of-season plans for your team (2026-10-12 00:35)
+# Rest-of-season plans for your team (2026-10-12 00:38)
 
 Model: 2026 deploy: mean(extratrees, xgb) tuned on all 17 gamedays (walk-forward, official points) (planning blend on). Start: Hamilton, Antonelli, Colapinto, Lawson, Bearman, Ferrari, Racing Bulls, bank $2.4m, 3 free transfers. Prices: the game's current prices, projected with its price rule. Expected points; re-plan every week.
+
+No Negative is valued with the forecast error (E[max(X,0)] - E[X], sd 14.6 per driver / 20.6 per constructor); Autopilot (not optimised): about 6 points in a typical week - play it in a week with no other chip. Final Fix is not modelled (it needs qualifying results).
 
 | chips available | expected points, rest of season | chips used (race by race) |
 |---|---|---|
 | no chips | 1005 | - |
 | 3x_booster | 1035 | US GP: 3x_booster |
-| no_negative | 1005 | - |
+| no_negative | 1017 | US GP: no_negative |
 | wildcard | 1005 | - |
 | limitless | 1061 | US GP: limitless |
-| wildcard, 3x_booster, no_negative, limitless | 1090 | US GP: 3x_booster, Mexico City GP: limitless, São Paulo GP: wildcard |
+| wildcard, 3x_booster, no_negative, limitless | 1101 | US GP: 3x_booster, Mexico City GP: limitless, São Paulo GP: no_negative |
 
 ## Chips available: none - expected 1005 points over 6 races
 
@@ -33,11 +35,11 @@ Model: 2026 deploy: mean(extratrees, xgb) tuned on all 17 gamedays (walk-forward
 | Qatar GP | Hadjar, Antonelli, Hulkenberg, Lawson, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 215.4 |
 | Abu Dhabi GP | Hadjar, Antonelli, Hulkenberg, Lawson, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 214.4 |
 
-## Chips available: no_negative - expected 1005 points over 6 races
+## Chips available: no_negative - expected 1017 points over 6 races
 
 | race | drivers | constructors | boost | chip | transfers in | out | exp. pts |
 |---|---|---|---|---|---|---|---|
-| US GP | Antonelli, Bearman, Hulkenberg, Lawson, Lindblad | Ferrari, Mercedes | Antonelli |  | Hulkenberg, Lindblad, Mercedes | Colapinto, Hamilton, Racing Bulls | 214.5 |
+| US GP | Antonelli, Bearman, Hulkenberg, Lawson, Lindblad | Ferrari, Mercedes | Antonelli | no_negative | Hulkenberg, Lindblad, Mercedes | Colapinto, Hamilton, Racing Bulls | 226.5 |
 | Mexico City GP | Hadjar, Antonelli, Alonso, Bearman, Hulkenberg | Ferrari, Mercedes | Antonelli |  | Alonso, Hadjar | Lawson, Lindblad | 212.4 |
 | São Paulo GP | Hadjar, Antonelli, Hulkenberg, Lawson, Perez | Ferrari, Mercedes | Antonelli |  | Lawson, Perez | Alonso, Bearman | 215.4 |
 | Las Vegas GP | Hadjar, Antonelli, Hulkenberg, Lawson, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 214.9 |
@@ -66,13 +68,13 @@ Model: 2026 deploy: mean(extratrees, xgb) tuned on all 17 gamedays (walk-forward
 | Qatar GP | Hadjar, Antonelli, Hulkenberg, Lindblad, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 215.4 |
 | Abu Dhabi GP | Hadjar, Antonelli, Hulkenberg, Lindblad, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 214.3 |
 
-## Chips available: wildcard, 3x_booster, no_negative, limitless - expected 1090 points over 6 races
+## Chips available: wildcard, 3x_booster, no_negative, limitless - expected 1101 points over 6 races
 
 | race | drivers | constructors | boost | chip | transfers in | out | exp. pts |
 |---|---|---|---|---|---|---|---|
-| US GP | Antonelli, Bearman, Hulkenberg, Lawson, Lindblad | Ferrari, Mercedes | Antonelli | 3x_booster | Hulkenberg, Lindblad, Mercedes | Colapinto, Hamilton, Racing Bulls | 245.0 |
-| Mexico City GP | Verstappen, Russell, Antonelli, Leclerc, Hamilton | Ferrari, Mercedes | Antonelli | limitless | Hamilton, Leclerc, Russell, Verstappen | Bearman, Hulkenberg, Lawson, Lindblad | 273.8 |
-| São Paulo GP | Hadjar, Antonelli, Hulkenberg, Lindblad, Perez | Ferrari, Mercedes | Antonelli | wildcard | Hadjar, Perez | Bearman, Lawson | 215.2 |
-| Las Vegas GP | Hadjar, Antonelli, Hulkenberg, Lindblad, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 214.8 |
-| Qatar GP | Hadjar, Antonelli, Hulkenberg, Lindblad, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 215.4 |
-| Abu Dhabi GP | Hadjar, Antonelli, Hulkenberg, Lindblad, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 214.3 |
+| US GP | Antonelli, Alonso, Bearman, Hulkenberg, Lawson | Ferrari, Mercedes | Antonelli | 3x_booster | Alonso, Hulkenberg, Mercedes | Colapinto, Hamilton, Racing Bulls | 241.1 |
+| Mexico City GP | Verstappen, Russell, Antonelli, Leclerc, Hamilton | Ferrari, Mercedes | Antonelli | limitless | Hamilton, Leclerc, Russell, Verstappen | Alonso, Bearman, Hulkenberg, Lawson | 273.8 |
+| São Paulo GP | Antonelli, Leclerc, Hulkenberg, Perez, Bottas | Ferrari, Mercedes | Antonelli | no_negative | Bottas, Leclerc, Perez | Alonso, Bearman, Lawson | 228.8 |
+| Las Vegas GP | Antonelli, Leclerc, Albon, Hulkenberg, Perez | Ferrari, Mercedes | Antonelli |  | Albon | Bottas | 216.4 |
+| Qatar GP | Antonelli, Leclerc, Albon, Hulkenberg, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 217.6 |
+| Abu Dhabi GP | Antonelli, Leclerc, Albon, Hulkenberg, Perez | Ferrari, Mercedes | Antonelli |  | - | - | 216.5 |

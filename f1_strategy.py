@@ -121,7 +121,7 @@ def evaluate_plan(plan_teams, plan_boosts, plan_chips, pts, price, is_driver, ru
 
 def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
                    time_limit=300, mip_rel_gap=0.0, verbose=False,
-                   terminal_price=None, value_weight=0.0, chip_cost=None, frozen=()):
+                   terminal_price=None, value_weight=0.0, chip_cost=None, frozen=(), nn_gain=None):
     """
     Maximise (discounted) points over all weekends.
 
@@ -134,6 +134,8 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
         unless the planned gain beats it).
     frozen     : rounds in which the team cannot change and no chip can be played (used to model the
         Limitless chip: the real team is parked that week and reverts afterwards; see f1_planner).
+    nn_gain    : optional (T, E) expected gain of the No Negative chip per held asset when `pts` are forecasts -
+        E[max(X, 0)] - E[X] under the forecast error (the default, max(-pts, 0), is right only for known points).
     Neither changes how a plan is *scored*: plan.total is always true points (evaluate_plan).
     Returns a Plan (plan.optimal is True when optimality is proven).
     """
@@ -216,8 +218,9 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
         c[idx[("x", t)]] -= d * pts[t]
         c[idx[("b1", t)]] -= d * pts[t] * is_driver
         c[idx[("b3", t)]] -= d * 2.0 * pts[t] * is_driver
-        c[idx[("w", t)]] -= d * np.maximum(-pts[t], 0)
-        c[idx[("bn", t)]] -= d * np.maximum(-pts[t], 0) * is_driver
+        g = np.maximum(-pts[t], 0) if nn_gain is None else np.asarray(nn_gain[t], float)
+        c[idx[("w", t)]] -= d * g
+        c[idx[("bn", t)]] -= d * g * is_driver
         c[idx[("ex", t)]] += d * rules.penalty
         if value_weight:
             nxt = price[t + 1] if t + 1 < T else (terminal_price if terminal_price is not None else price[t])
@@ -337,6 +340,12 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
             chip = "3x_booster"
         chips.append(chip)
     total, per, pen, trs, ok = evaluate_plan(teams, boosts, chips, pts, price, is_driver, rules, state, discount)
+    if nn_gain is not None:                  # expected value of No Negative under uncertainty, not just on the means
+        for t in range(T):
+            if chips[t] == "no_negative":
+                extra = sum(nn_gain[t][e] - max(-pts[t][e], 0.0) for e in teams[t]) + nn_gain[t][boosts[t]] - max(-pts[t][boosts[t]], 0.0)
+                per[t] += float(extra)
+                total += float(extra) * (1.0 if discount is None else discount[t])
     return Plan(teams, boosts, chips, trs, pen, per, total, objective=-res.fun,
                 status=res.message, optimal=bool(res.status == 0))
 

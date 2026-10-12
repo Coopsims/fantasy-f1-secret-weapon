@@ -79,7 +79,7 @@ def main():
     ap.add_argument("--bank", type=float, default=0.0, help="cost cap remaining ($m), with --team")
     ap.add_argument("--budget", type=float, default=100.0, help="budget for a fresh team ($m)")
     ap.add_argument("--free", type=int, default=2, help="free transfers available now")
-    ap.add_argument("--chips", nargs="*", default=[], help="chips still available: wildcard 3x_booster no_negative limitless")
+    ap.add_argument("--chips", nargs="*", default=[], help="chips still available: wildcard 3x_booster no_negative limitless autopilot (autopilot: best week reported)")
     ap.add_argument("--rounds", type=int, default=None, help="plan only the next N races")
     ap.add_argument("--discount", type=float, default=0.9, help="weight of each later race (forecasts get less reliable)")
     ap.add_argument("--price", action="append", default=[], help="override a price, e.g. --price Antonelli=26.5")
@@ -126,6 +126,10 @@ def main():
     df = pd.DataFrame(rows)
     with pd.option_context("display.width", 250, "display.max_colwidth", 80):
         print(df.to_string(index=False))
+    if "autopilot" in a.chips:
+        ap_ = FP.autopilot_advice(plan, pts)
+        if ap_:
+            print(f"Autopilot: best used at {names[ap_[0]]} (+{ap_[1]:.1f} expected over boosting the top-forecast driver)")
     print(f"\nExpected total over {len(rounds)} races: {plan.total:.1f} points (forecast error per driver per race is "
           f"roughly +-11-15 points; re-plan every week with fresh results).")
     nxt = pd.DataFrame({"asset": FP.ENTITIES, "type": np.where(FP.IS_DRIVER, "D", "C"), "exp_points_next": pts[0].round(1),

@@ -206,6 +206,29 @@ def project_prices(price_now, pts_fc, op, prices_path="fantasy_f1_prices_officia
     return np.array(P)
 
 
+ERROR_SD = {"driver": 14.6, "constructor": 20.6}       # held-out 2026 RMSE vs official points (results/BEST_MODEL_2026.md)
+
+
+def _sigma():
+    return np.where(IS_DRIVER, ERROR_SD["driver"], ERROR_SD["constructor"])
+
+
+def nn_gain(pts):
+    """E[max(X, 0)] - E[X] for X ~ Normal(forecast, error sd): what No Negative is worth per held asset."""
+    from scipy.stats import norm
+    mu, sd = np.asarray(pts, float), _sigma()[None, :]
+    z = mu / sd
+    return sd * norm.pdf(z) - mu * (1 - norm.cdf(z))
+
+
+def autopilot_gain(team, pts_row, n=20000, seed=0):
+    """Autopilot doubles the team's top-scoring driver after the race: E[max X_i] - max E[X_i] over the team's drivers."""
+    d = [e for e in team if IS_DRIVER[e]]
+    rng = np.random.default_rng(seed)
+    draws = np.asarray(pts_row)[d][None, :] + ERROR_SD["driver"] * rng.standard_normal((n, len(d)))
+    return float(draws.max(1).mean() - np.max(np.asarray(pts_row)[d]))
+
+
 def limitless_team(pts_row, locked_out=()):
     """Best unconstrained team for one race (no budget, no transfer cost): top 5 drivers + top 2 constructors, 2x boost."""
     v = np.array(pts_row, float)
@@ -225,7 +248,7 @@ def plan(pts, price_path, team=None, bank=0.0, budget=100.0, free=2, chips=(), d
     real team is parked unchanged, as the game reverts it), plus not using it; the best total wins.
     Returns (Plan, State); plan.chips[k] == 'limitless' marks the week, plan.teams[k] is then the Limitless team.
     """
-    chips = tuple(chips)
+    chips = tuple(c for c in chips if c in ("wildcard", "3x_booster", "no_negative", "limitless"))   # autopilot / final_fix: reported, not optimised
     if "limitless" in chips:
         rest = tuple(c for c in chips if c != "limitless")
         best = plan(pts, price_path, team, bank, budget, free, rest, discount, rules, locked_in, locked_out, time_limit)
@@ -267,7 +290,7 @@ def _plan(pts, price_path, team=None, bank=0.0, budget=100.0, free=2, chips=(), 
         pts[:, ENTITIES.index(canon_entity(n))] += big
     disc = discount ** np.arange(H)
     p = solve_strategy(pts, price_path[:H], IS_DRIVER, rules, state, disc, time_limit=time_limit, mip_rel_gap=0.0,
-                       frozen=_frozen)
+                       frozen=_frozen, nn_gain=nn_gain(pts))
     if locked_in or locked_out:                            # report true expected points, not the steering offsets
         true = np.array(pts, float)
         for n in locked_out:
@@ -309,3 +332,15 @@ try:
             return out
 except ImportError:            # mlflow not installed: the planners still work
     pass
+
+
+def autopilot_advice(plan, pts):
+    """Best week for Autopilot on the planned teams (weeks without another chip). Returns (week index, gain) or None."""
+    best = None
+    for k, t in enumerate(plan.teams):
+        if plan.chips[k]:
+            continue
+        g = autopilot_gain(t, pts[k])
+        if best is None or g > best[1]:
+            best = (k, g)
+    return best

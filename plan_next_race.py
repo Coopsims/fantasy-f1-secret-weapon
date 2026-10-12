@@ -23,7 +23,7 @@ def main():
     ap.add_argument("--team", nargs=7, required=True)
     ap.add_argument("--bank", type=float, required=True, help="cost cap remaining ($m)")
     ap.add_argument("--free", type=int, required=True, help="free transfers available")
-    ap.add_argument("--chips", nargs="*", default=[], help="chips still available: wildcard 3x_booster no_negative limitless")
+    ap.add_argument("--chips", nargs="*", default=[], help="chips still available: wildcard 3x_booster no_negative limitless autopilot (autopilot: best week reported)")
     ap.add_argument("--horizon", type=int, default=3, help="races planned ahead (the first one is acted on)")
     ap.add_argument("--discount", type=float, default=0.6, help="weight of each later race (0.6 was best in the 2026 replay)")
     ap.add_argument("--price", action="append", default=[], help="override a price, e.g. --price Antonelli=26.5")
@@ -60,6 +60,11 @@ def main():
         print(f"Recommended:  OUT {sorted(set(team) - set(t0)) or '-'}  IN {sorted(set(t0) - set(team)) or '-'}  "
               f"boost {FP.ENTITIES[plan.boosts[0]]}  chip {plan.chips[0] or '-'}  -> expected {plan.round_points[0]:.1f} pts "
               f"(transfer penalty {plan.penalties[0]:.0f})")
+    if "autopilot" in a.chips:
+        ap_ = FP.autopilot_advice(plan, pts)
+        if ap_:
+            print(f"Autopilot: best of the next {len(rounds)} races is {names[ap_[0]]} (+{ap_[1]:.1f} expected); "
+                  f"{'play it this week' if ap_[0] == 0 else 'keep it for later'}")
     print(f"\nPlan for the next {len(rounds)} races (only the first is acted on; re-run each week; optimal: {plan.optimal}):")
     prev = set(team)
     for k, nm in enumerate(names):

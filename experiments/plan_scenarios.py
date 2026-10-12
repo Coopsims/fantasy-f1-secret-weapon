@@ -10,6 +10,9 @@ TEAM = ["Hamilton", "Antonelli", "Colapinto", "Lawson", "Bearman", "Ferrari", "R
 BANK, FREE = 2.4, 3
 SCENARIOS = [(), ("3x_booster",), ("no_negative",), ("wildcard",), ("limitless",),
              ("wildcard", "3x_booster", "no_negative", "limitless")]
+NOTE = ("No Negative is valued with the forecast error (E[max(X,0)] - E[X], sd 14.6 per driver / 20.6 per constructor); "
+        "Autopilot (not optimised): about 6 points in a typical week - play it in a week with no other chip. Final Fix "
+        "is not modelled (it needs qualifying results).")
 
 if __name__ == "__main__":
     import mlflow_experiments as X
@@ -22,7 +25,7 @@ if __name__ == "__main__":
     path = FP.project_prices(price, pts, FP.official_tables())
     lines = [f"# Rest-of-season plans for your team ({datetime.datetime.now():%Y-%m-%d %H:%M})", "",
              f"Model: {spec_name} (planning blend on). Start: {', '.join(TEAM)}, bank ${BANK}m, {FREE} free transfers. "
-             "Prices: the game's current prices, projected with its price rule. Expected points; re-plan every week.", ""]
+             "Prices: the game's current prices, projected with its price rule. Expected points; re-plan every week.", "", NOTE, ""]
     summary = []
     for chips in SCENARIOS:
         p, st = FP.plan(pts, path, team=TEAM, bank=BANK, free=FREE, chips=chips, discount=0.9)
@@ -38,7 +41,7 @@ if __name__ == "__main__":
             if p.chips[k] != "limitless":
                 prev = set(team)
         lines.append("")
-    lines[4:4] = ["| chips available | expected points, rest of season | chips used (race by race) |", "|---|---|---|"] + \
+    lines[6:6] = ["| chips available | expected points, rest of season | chips used (race by race) |", "|---|---|---|"] + \
                  [f"| {c} | {t:.0f} | {', '.join(f'{names[i]}: {x}' for i, x in enumerate(ch) if x) or '-'} |" for c, t, ch in summary] + [""]
     open("results/SEASON_PLAN.md", "w").write("\n".join(lines))
     print("\n".join(lines[:16]))

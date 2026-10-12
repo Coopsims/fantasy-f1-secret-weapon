@@ -61,3 +61,26 @@ def test_planning_blend_weights_are_applied_to_all_assets():
     pb = {"w_model": 0.5, "w_sim": 0.3, "w_ewma": 0.2}
     blended = pb["w_model"] * out[0] + pb["w_sim"] * sim[20] + pb["w_ewma"] * ew.values
     assert np.allclose(blended, 0.5 * 20 + 0.3 * 10 + 0.2 * 30)
+
+
+def test_no_negative_gain_is_positive_and_falls_with_the_forecast():
+    mu = np.zeros((1, len(FP.ENTITIES)))
+    mu[0, :6] = [30, 20, 10, 5, 0, -5]
+    g = FP.nn_gain(mu)[0][:6]
+    assert (g > 0).all() and all(a < b for a, b in zip(g, g[1:]))
+    assert abs(g[-1] - (5 + FP.nn_gain(np.array([[5.0] * len(FP.ENTITIES)]))[0][0])) < 1e-6   # E[max(X,0)] - mu symmetry
+
+
+def test_solver_uses_no_negative_when_its_expected_gain_is_large():
+    pts, price = _world(T=2, seed=4)
+    team = _cheap_team(price)
+    idx = frozenset(FP.ENTITIES.index(n) for n in team)
+    st = State(prev_team=idx, wealth=float(price[0][list(idx)].sum()) + 5, free_transfers=2, chips_left=("no_negative",))
+    gain = np.zeros_like(pts); gain[1] = 50.0                     # huge downside protection in week 2 only
+    p = solve_strategy(pts, price[:2], FP.IS_DRIVER, Rules(chips=("no_negative",)), st, nn_gain=gain)
+    assert p.chips == [None, "no_negative"]
+
+
+def test_autopilot_gain_is_positive_for_a_spread_team():
+    pts = np.zeros(len(FP.ENTITIES)); pts[:5] = [30, 25, 20, 10, 5]
+    assert FP.autopilot_gain(frozenset(range(5)) | {22, 23}, pts) > 2.0
