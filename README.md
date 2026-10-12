@@ -163,3 +163,10 @@ python rebuild_raw_from_full.py      # regenerate raw_historical_data.json / raw
 
 Read `docs/OPENF1_NOTES.md` first: rate limits (pace requests at about 1 s, never in parallel), the failed-request-looks-empty
 trap, and the Sprint-weekend session labelling. `results/DATA_CORRECTION.md` explains a labelling bug that affected 2023-24.
+
+```bash
+python fetch_fantasy_feed.py         # official game points (incl. Driver of the Day) and real prices for every gameday
+python plan_next_race.py --team Hamilton Antonelli Colapinto Lawson Bearman Ferrari "Racing Bulls" --bank 2.4 --free 3
+```
+
+`docs/FANTASY_FEED_NOTES.md` describes the feed and how the price rule was checked against it.

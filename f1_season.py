@@ -58,7 +58,7 @@ def season_actuals(res, year, official=None):
     `official` = optional DataFrame(round, name, points) overriding reconstructed totals.
     """
     wk = res.weekends[res.weekends["year"] == year].sort_values("round")
-    rounds, ts, pts, ev, pit_known = [], [], [], [], []
+    rounds, ts, pts, ev, pit_known, active = [], [], [], [], [], []
     for _, w in wk.iterrows():
         d, c = score_weekend_actual(res, int(w["t"]))
         if d.empty:
@@ -66,6 +66,7 @@ def season_actuals(res, year, official=None):
         row = np.zeros(len(ENTITIES))
         e_row = np.zeros((len(ENTITIES), 3))
         d = d.set_index("driver")
+        active.append(np.array([n in d.index for n in DRIVERS] + [True] * len(TEAMS)))
         for i, name in enumerate(DRIVERS):
             if name in d.index:
                 row[i] = d.loc[name, "total"]
@@ -83,11 +84,25 @@ def season_actuals(res, year, official=None):
                     row[i] = o[name]
         rounds.append(int(w["round"])); ts.append(int(w["t"]))
         pts.append(row); ev.append(e_row); pit_known.append(pk)
-    return {"rounds": rounds, "t": ts, "pts": np.array(pts), "events": np.array(ev),
+    return {"rounds": rounds, "t": ts, "pts": np.array(pts), "events": np.array(ev), "active": np.array(active),
             "pit_known": np.array(pit_known)}
 
 
-def price_table(rounds, pts, price_csv=None, verbose=False, return_rule=False):
+def _canon_entity(name):
+    from f1_calendar import canon_driver, canon_team
+    t = canon_team(name)
+    return t if t in TEAMS else canon_driver(name)
+
+
+def _data_key(res):
+    """Fingerprint of the race data, so a cached replay is never reused after the data changes."""
+    import hashlib
+    cols = [c for c in ("t", "session", "driver", "team", "grid", "finish", "dnf", "fastest_lap", "overtakes") if c in res.sessions]
+    h = pd.util.hash_pandas_object(res.sessions[cols], index=False).values
+    return hashlib.sha1(h.tobytes()).hexdigest()[:16]
+
+
+def price_table(rounds, pts, price_csv=None, verbose=False, return_rule=False, active=None):
     """
     price[i] = price before the i-th raced weekend (what you pay when you transfer for it).
 
@@ -101,8 +116,10 @@ def price_table(rounds, pts, price_csv=None, verbose=False, return_rule=False):
     base = np.array([DEFAULT_DRIVER_PRICES[d] for d in DRIVERS] + [DEFAULT_CONSTRUCTOR_PRICES[t] for t in TEAMS])
     anchors = {}
     if price_csv and os.path.exists(price_csv):
-        anchors = checkpoints_from_csv(pd.read_csv(price_csv), rounds, ENTITIES)
-    P, info = reconstruct(np.asarray(pts, float), base, anchors, verbose=verbose)
+        df = pd.read_csv(price_csv)
+        df["name"] = df["name"].map(_canon_entity)        # e.g. "Haas" -> "Haas F1 Team"; unmatched names were silently ignored
+        anchors = checkpoints_from_csv(df, rounds, ENTITIES)
+    P, info = reconstruct(np.asarray(pts, float), base, anchors, verbose=verbose, active=active)
     R = len(rounds)
     n_est = sum(1 for j in range(1, R) if j not in anchors or np.isnan(anchors[j]).any())
     if return_rule:
@@ -345,16 +362,21 @@ def hindsight_optimum(act, prices, rules=None, time_limit=600):
 # CLI
 # ──────────────────────────────────────────────────────────────
 
+def _replay_key(res, year, n_sims, horizon, params, official):
+    off = None if official is None else int(pd.util.hash_pandas_object(official, index=False).sum())
+    return (year, n_sims, horizon, _data_key(res), repr(params), off)
+
+
 def cached_replay(res, year, n_sims, horizon, params=None, official=None, cache=None):
     """replay(), stored in / loaded from `cache` (pickle) so policy tuning does not refit the model."""
     if cache and os.path.exists(cache):
         with open(cache, "rb") as f:
             rep = pickle.load(f)
-        if rep.get("_key") == (year, n_sims, horizon, len(res.weekends)):
+        if rep.get("_key") == _replay_key(res, year, n_sims, horizon, params, official):
             print(f"  (replay loaded from {cache})")
             return rep
     rep = replay(res, year, n_sims, horizon, params, official=official)
-    rep["_key"] = (year, n_sims, horizon, len(res.weekends))
+    rep["_key"] = _replay_key(res, year, n_sims, horizon, params, official)
     if cache:
         with open(cache, "wb") as f:
             pickle.dump(rep, f)
@@ -370,7 +392,7 @@ def run_all(res, year, prices_csv=None, official_csv=None, n_sims=4000, horizon=
     if acc.empty:
         raise SystemExit(f"No completed {year} weekends in the data.")
     act = rep["actuals"]
-    prices, n_est, rule = price_table(act["rounds"], act["pts"], prices_csv, verbose=True, return_rule=True)
+    prices, n_est, rule = price_table(act["rounds"], act["pts"], prices_csv, verbose=True, return_rule=True, active=act.get("active"))
     print(f"\n  Driver MAE {acc.driver_mae.mean():.2f} vs naive-last-3 {acc.driver_mae_naive3.mean():.2f}; "
           f"rank-corr {acc.driver_rankcorr.mean():.2f}; 80% cover {acc.driver_cover80.mean():.2f}; "
           f"constructor MAE {acc.constructor_mae.mean():.2f} vs {acc.constructor_mae_naive3.mean():.2f}")
@@ -431,7 +453,7 @@ def _cli():
     grid = default_policy_grid()
     rep = cached_replay(res, a.year, a.sims, max(p.horizon for p in grid), official=official, cache=cache)
     act = rep["actuals"]
-    prices, n_est, rule = price_table(act["rounds"], act["pts"], a.prices, verbose=True, return_rule=True)
+    prices, n_est, rule = price_table(act["rounds"], act["pts"], a.prices, verbose=True, return_rule=True, active=act.get("active"))
     if n_est:
         print(f"  ⚠ {n_est} weekend(s) of prices reconstructed by the rule (not real prices).")
     df = tune_play(rep, prices, rules, rule, grid, workers=a.workers)

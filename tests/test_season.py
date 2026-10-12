@@ -81,3 +81,33 @@ def test_policy_variants_play_and_tune(run):
     df = S.tune_play(rep, prices, Rules(), PriceRule(), grid, workers=1, verbose=False)
     assert len(df) == 3 and (df["delta"] >= -1e-6).all()
     assert np.allclose(df["delta_first_half"] + df["delta_second_half"], df["delta"])
+
+
+def test_price_csv_names_are_canonicalised(tmp_path):
+    import numpy as np
+    import pandas as pd
+    import f1_season as S
+    rounds = [1, 2]
+    pts = np.zeros((2, len(S.ENTITIES)))
+    rows = [(0, n, 10.0) for n in S.ENTITIES if n != "Haas F1 Team"] + [(0, "Haas", 9.9)]
+    p = tmp_path / "prices.csv"
+    pd.DataFrame(rows, columns=["round", "name", "price"]).to_csv(p, index=False)
+    prices, _ = S.price_table(rounds, pts, str(p))
+    assert prices[0][S.ENTITIES.index("Haas F1 Team")] == 9.9      # "Haas" in the CSV is the Haas F1 Team constructor
+
+
+def test_replay_cache_is_keyed_on_the_data():
+    import f1_season as S
+    from f1_synthetic import synthetic_results
+    a = synthetic_results(seed=1, rounds_2026=4)
+    b = synthetic_results(seed=2, rounds_2026=4)
+    assert len(a.weekends) == len(b.weekends) and S._data_key(a) != S._data_key(b)
+
+
+def test_replay_cache_key_changes_with_official_points():
+    import pandas as pd
+    import f1_season as S
+    from f1_synthetic import synthetic_results
+    r = synthetic_results(seed=1, rounds_2026=4)
+    off = pd.DataFrame({"round": [1], "name": ["Verstappen"], "points": [30.0]})
+    assert S._replay_key(r, 2026, 100, 3, None, None) != S._replay_key(r, 2026, 100, 3, None, off)

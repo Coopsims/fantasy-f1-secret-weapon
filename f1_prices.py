@@ -21,7 +21,17 @@ fitted to real prices whenever there are any):
     same as averaging over the races run so far against 0.6 / 0.9 / 1.2, so that is
     what is implemented.  Worked example from the guide: $23.0m driver scoring 10 in
     Australia -> PPM 0.43 -> terrible -> -$0.3m (tested).
-  * prices never fall below `floor` (assumed $4.0m - not confirmed).
+  * prices never fall below `floor` = $3.0m and never rise above `cap` = $34.0m, and a driver who does not take
+    part in a weekend keeps his price.  These three come from the game's official 2026 prices (fantasy feed):
+    assets sat at $3.0m 30 times and never went lower; Mercedes went 33.8 -> 34.0 (+0.2 where the rule says +0.3)
+    and then stayed (only two observations, so the cap is "observed", not certain); Hadjar stayed at $14.5m while
+    absent (rounds 14-16) and so did the Racing Bulls Lawson asset while he drove for Red Bull.
+  * tier split: the A tier starts at $18.5m (Alpine moved in A-tier steps from $18.5m; matches the FanAmp graphic).
+
+Accuracy against the official 2026 prices (experiments/price_rule_check.py): the guide's default rule driven by the
+game's official points reproduces 94% of week-to-week moves exactly and ends the season $0.19m (MAE) from the real
+prices; driven by our own reconstructed points it reproduces 77%.  FITTING the cut-offs to only two real weekends made
+it much worse (drift $1.41m MAE by Singapore), so `reconstruct` only fits with >= `min_fit_segments` (6) transitions.
 
 What makes a reconstruction trustworthy is real prices to anchor on.  Known prices
 (any round, any subset of assets) are used as checkpoints: the rule is fitted to
@@ -43,11 +53,12 @@ STEP = {"A": np.array([-0.3, -0.1, 0.1, 0.3]), "B": np.array([-0.6, -0.2, 0.2, 0
 
 @dataclass(frozen=True)
 class PriceRule:
-    tier_cut: float = 19.0            # A tier above $19m (FanAmp 2025 text; its older graphic says 18.5)
+    tier_cut: float = 18.5            # A tier from $18.5m (official 2026 prices; FanAmp graphic 18.5, its text 19)
     cuts_a: tuple = (0.6, 0.9, 1.2)   # PPM cut-offs poor / good / great, A tier (2025 guide)
     cuts_b: tuple = (0.6, 0.9, 1.2)   # same for B tier (the guides give one set for both)
     window: int = 3
-    floor: float = 4.0                # assumption
+    floor: float = 3.0                # official 2026 prices (lowest ever, held 30 times)
+    cap: float = 34.0                 # official 2026 prices (Mercedes clipped at 34.0; only two observations)
 
 
 def level_index(ppm, cuts):
@@ -55,17 +66,20 @@ def level_index(ppm, cuts):
     return np.searchsorted(np.asarray(cuts), ppm, side="right")
 
 
-def step_prices(price, ppm_window, rule):
+def step_prices(price, ppm_window, rule, active=None):
     """
     Prices after one raced weekend.
     price      : (E,) price held into the weekend just raced (the one that moves)
     ppm_window : (k, E) points-per-$m of the last k <= window races, the latest last
+    active     : (E,) bool - False for an asset that did not take part (its price does not move)
     """
     ppm = np.asarray(ppm_window, float).mean(0)
     a = price >= rule.tier_cut
     lv = np.where(a, level_index(ppm, rule.cuts_a), level_index(ppm, rule.cuts_b))
     delta = np.where(a, STEP["A"][lv], STEP["B"][lv])
-    return np.maximum(rule.floor, np.round(price + delta, 1))
+    if active is not None:
+        delta = np.where(np.asarray(active, bool), delta, 0.0)
+    return np.minimum(rule.cap, np.maximum(rule.floor, np.round(price + delta, 1)))
 
 
 def _ppm(pts, P, j):
@@ -73,10 +87,11 @@ def _ppm(pts, P, j):
     return np.asarray(pts, float)[j - 1] / np.maximum(P[j - 1], 0.1)
 
 
-def simulate(pts, start, rule, anchors=None, upto=None, history=None):
+def simulate(pts, start, rule, anchors=None, upto=None, history=None, active=None):
     """
     prices[j] = prices after j raced weekends (j = 0..R).  pts: (R, E).
     anchors: {j: vector, NaN = unknown} - known prices replace simulated ones where present.
+    active : optional (R, E) bool - who took part in each weekend (non-participants keep their price).
     """
     pts = np.asarray(pts, float)
     R, E = pts.shape
@@ -86,7 +101,8 @@ def simulate(pts, start, rule, anchors=None, upto=None, history=None):
     ppm = np.zeros((R + 1, E))
     for j in range(1, R + 1):
         ppm[j] = _ppm(pts, P, j)
-        sim = step_prices(P[j - 1], ppm[max(1, j - rule.window + 1):j + 1], rule)
+        sim = step_prices(P[j - 1], ppm[max(1, j - rule.window + 1):j + 1], rule,
+                          None if active is None else active[j - 1])
         P[j] = _merge(sim, anchors.get(j))
     return P
 
@@ -127,7 +143,7 @@ def _segments(anchors):
     return list(zip(js[:-1], js[1:]))
 
 
-def segment_errors(pts, anchors, rule, path=None):
+def segment_errors(pts, anchors, rule, path=None, active=None):
     """
     For each consecutive pair of checkpoints (a, b): start from the real prices at a,
     replay the rule to b, compare with the real prices at b.  Earlier races needed for the
@@ -136,7 +152,7 @@ def segment_errors(pts, anchors, rule, path=None):
     pts = np.asarray(pts, float)
     R = len(pts)
     if path is None:
-        path = simulate(pts, anchors.get(0), rule, anchors)
+        path = simulate(pts, anchors.get(0), rule, anchors, active=active)
     rows = []
     for a, b in _segments(anchors):
         if b > R:
@@ -144,7 +160,7 @@ def segment_errors(pts, anchors, rule, path=None):
         P = path.copy()                 # path[a] = real prices at a, gaps filled by the rule
         for j in range(a + 1, b + 1):
             win = [_ppm(pts, P, i) for i in range(max(1, j - rule.window + 1), j + 1)]
-            P[j] = step_prices(P[j - 1], win, rule)
+            P[j] = step_prices(P[j - 1], win, rule, None if active is None else active[j - 1])
         tgt = anchors[b]
         m = ~np.isnan(tgt)
         if not m.any():
@@ -154,8 +170,8 @@ def segment_errors(pts, anchors, rule, path=None):
     return rows
 
 
-def _loss(pts, anchors, rule):
-    rows = segment_errors(pts, anchors, rule)
+def _loss(pts, anchors, rule, active=None):
+    rows = segment_errors(pts, anchors, rule, active=active)
     if not rows:
         return np.inf
     n = sum(r[2] for r in rows)
@@ -163,7 +179,7 @@ def _loss(pts, anchors, rule):
 
 
 def fit_rule(pts, anchors, base=None, tier_cuts=(18.0, 18.5, 19.0, 20.0),
-             scales=np.round(np.arange(0.5, 1.81, 0.05), 3), refine=True):
+             scales=np.round(np.arange(0.5, 1.81, 0.05), 3), refine=True, active=None):
     """
     Fit the rule to the checkpoints.  Stage 1: tier cut-off x a common scale on the guide's
     cut-offs (0.6, 0.9, 1.2).  Stage 2 (refine): nudge each cut-off of each tier on its own.
@@ -177,7 +193,7 @@ def fit_rule(pts, anchors, base=None, tier_cuts=(18.0, 18.5, 19.0, 20.0),
     for tc, sc in product(tier_cuts, scales):
         cuts = tuple(np.round(g * sc, 3))
         r = replace(base, tier_cut=tc, cuts_a=cuts, cuts_b=cuts)
-        l = _loss(pts, anchors, r)
+        l = _loss(pts, anchors, r, active)
         if l < best[0] - 1e-12:
             best = (l, r)
     if refine:
@@ -190,7 +206,7 @@ def fit_rule(pts, anchors, base=None, tier_cuts=(18.0, 18.5, 19.0, 20.0),
                     if not (c[0] < c[1] < c[2]):
                         continue
                     r = replace(best[1], **{which: tuple(c)})
-                    l = _loss(pts, anchors, r)
+                    l = _loss(pts, anchors, r, active)
                     if l < best[0] - 1e-12:
                         best = (l, r)
     return best[1], best[0]
@@ -216,25 +232,28 @@ def holdout_check(pts, anchors, **fit_kw):
     return pd.DataFrame(rows)
 
 
-def reconstruct(pts, start, anchors=None, rule=None, fit=True, verbose=True):
+def reconstruct(pts, start, anchors=None, rule=None, fit=True, verbose=True, active=None, min_fit_segments=6):
     """
     Full reconstruction.  Returns (P, info): P[j] = prices after j raced weekends, so the
     price paid for raced weekend i (0-based) is P[i].  info = {rule, fit_mae, segments, n_estimated}.
+    The rule's cut-offs are only fitted with at least `min_fit_segments` transitions between real prices;
+    with fewer, the guide's rule is used (a 2-transition fit drifted 7x further than the default in 2026).
     """
     anchors = dict(anchors or {})
     anchors.setdefault(0, np.asarray(start, float))
     anchors[0] = _merge(start, anchors[0])
     info = {"rule": rule or PriceRule(), "fit_mae": None, "segments": [], "fitted": False}
-    if rule is None and fit and len(_segments(anchors)) >= 1:
-        info["rule"], info["fit_mae"] = fit_rule(pts, anchors)
+    if rule is None and fit and len(_segments(anchors)) >= max(1, min_fit_segments):
+        info["rule"], info["fit_mae"] = fit_rule(pts, anchors, active=active)
         info["fitted"] = True
-    info["segments"] = segment_errors(pts, anchors, info["rule"])
-    P = simulate(pts, anchors[0], info["rule"], anchors)
+    info["segments"] = segment_errors(pts, anchors, info["rule"], active=active)
+    P = simulate(pts, anchors[0], info["rule"], anchors, active=active)
     R = len(pts)
     info["n_estimated"] = sum(1 for j in range(1, R + 1) if j not in anchors or np.isnan(anchors[j]).any())
     if verbose:
         r = info["rule"]
-        src = "fitted to your real prices" if info["fitted"] else "UNVERIFIED defaults (no real prices to fit)"
+        src = ("fitted to your real prices" if info["fitted"] else
+               "guide defaults (too few real prices to fit)" if anchors and len(anchors) > 1 else "guide defaults (no real prices)")
         print(f"  Price rule ({src}): A tier >= ${r.tier_cut}m, pts/$m cut-offs A {r.cuts_a} B {r.cuts_b}")
         for a, b, n, mae, ex in info["segments"]:
             print(f"    real prices after {a} -> {b} races: {n} assets, MAE ${mae:.2f}m, exact {ex:.0%}")

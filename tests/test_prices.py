@@ -14,9 +14,28 @@ def test_guide_worked_example():
 def test_tiers_levels_and_floor():
     r = PriceRule()
     ppm = np.array([[0.5, 0.7, 1.0, 1.5, 0.5, 0.7, 1.0, 1.5, 0.0]])
-    price = np.array([25, 25, 25, 25, 10, 10, 10, 10, 4.1])
+    price = np.array([25, 25, 25, 25, 10, 10, 10, 10, 3.3])
     out = step_prices(price, ppm, r)
-    assert list(out) == [24.7, 24.9, 25.1, 25.3, 9.4, 9.8, 10.2, 10.6, 4.0]
+    # floor $3.0m: in the official 2026 prices Bottas went 3.3 -> 3.0 on a "terrible" weekend (-0.6 clipped)
+    assert list(out) == [24.7, 24.9, 25.1, 25.3, 9.4, 9.8, 10.2, 10.6, 3.0]
+
+
+def test_cap_tier_split_and_absent_drivers_from_official_prices():
+    r = PriceRule()
+    great = np.array([[2.0, 2.0, 2.0, 2.0]])
+    # Mercedes 33.8 -> 34.0 and then held at 34.0; Alpine moved in A-tier steps (+0.3) at $18.5m
+    assert list(step_prices(np.array([33.8, 34.0, 18.5, 18.4]), great, r)) == [34.0, 34.0, 18.8, 19.0]
+    # Hadjar (absent rounds 14-16) kept his price however the weekend went
+    assert list(step_prices(np.array([14.5, 14.5]), np.array([[0.0, 0.0]]), r, active=np.array([False, True]))) == [14.5, 13.9]
+
+
+def test_two_checkpoints_are_not_enough_to_fit():
+    rng = np.random.default_rng(3)
+    start = rng.uniform(5, 30, 33).round(1)
+    pts = np.maximum(-20, start * rng.uniform(0.5, 1.6, 33) + rng.normal(0, 12, (12, 33)))
+    P = simulate(pts, start, PriceRule())
+    _, info = reconstruct(pts, start, {0: P[0], 1: P[1], 2: P[2]}, verbose=False)
+    assert not info["fitted"] and info["rule"] == PriceRule()
 
 
 def test_early_season_equivalence_with_zero_padding():
@@ -52,7 +71,7 @@ def test_fit_recovers_rule_from_two_real_weekends():
     pts = np.maximum(-20, start * rng.uniform(0.5, 1.6, 33) + rng.normal(0, 12, (12, 33)))
     true = PriceRule(tier_cut=19.0, cuts_a=(0.66, 0.99, 1.32), cuts_b=(0.66, 0.99, 1.32))
     P = simulate(pts, start, true)
-    Q, info = reconstruct(pts, start, {0: P[0], 1: P[1], 2: P[2]}, verbose=False)
+    Q, info = reconstruct(pts, start, {0: P[0], 1: P[1], 2: P[2]}, verbose=False, min_fit_segments=2)
     assert info["fitted"] and info["fit_mae"] == pytest.approx(0, abs=1e-9)
     assert np.abs(Q - P).max() < 0.15
 
