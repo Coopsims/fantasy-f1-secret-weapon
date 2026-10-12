@@ -20,7 +20,7 @@ if __name__ == "__main__":
         fc = fcs[name]
         tot, log = play(fc, discount=disc, chip_reserve=cr)
         chips = log[log.chip.notna() & (log.chip != "")][["gameday", "chip"]].values.tolist()
-        rows.append({"forecaster": name, "discount": disc, "chip_reserve": cr, "points": tot, "share": tot / 5741.0,
+        rows.append({"forecaster": name, "discount": disc, "chip_reserve": cr, "points": tot, "share": tot / 5778.0,
                      "first_half": float(log.points.values[:8].sum()), "second_half": float(log.points.values[8:].sum()),
                      "chips_used": str(chips)})
         print(rows[-1], flush=True)

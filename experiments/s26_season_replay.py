@@ -1,7 +1,7 @@
 """Decision-level test: play the 2026 season with a forecaster, walk-forward, on the game's official points and prices.
 At gameday g the player knows: results and official points of gamedays < g, the real prices for gameday g, and that
 weekend's practice (before the lock).  It forecasts the next H raced weekends, solves exactly, plays one week, rolls on.
-Compared with the proven hindsight optimum (5741)."""
+Compared with the proven hindsight optimum (5778 under the game rules as in the FAQ; 5741 before the x3 Boost fix)."""
 import os, sys, json, datetime, pickle
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     with ProcessPoolExecutor(max_workers=int(os.environ.get("WORKERS", "6"))) as ex:
         res_ = list(ex.map(forecast_at, [(g, forecasters) for g in range(1, G + 1)]))
     pd.to_pickle(res_, f"results/cache/season_replay_forecasts_{datetime.date.today()}.pkl")
-    OPT = 5741.0
+    OPT = 5778.0                                                # experiments/s26_decisions_rerun.py (proven)
     rows = []
     mlflow = X._mlflow()
     with mlflow.start_run(run_name=f"s26-season-replay {datetime.date.today()}"):
