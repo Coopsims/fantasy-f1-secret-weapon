@@ -301,8 +301,11 @@ def tune_play(rep, prices, rules=None, rule=None, grid=None, workers=None, optim
     if workers == 1:
         results = [_play_one(j) for j in jobs]
     else:
-        with ProcessPoolExecutor(max_workers=workers) as ex:
-            results = list(ex.map(_play_one, jobs))
+        # "spawn", not fork: the optimum solve above leaves HiGHS threads behind, and forked
+        # children inherit their locks and can hang forever.
+        import multiprocessing as mp
+        with ProcessPoolExecutor(max_workers=workers or os.cpu_count(), mp_context=mp.get_context("spawn")) as ex:
+            results = list(ex.map(_play_one, jobs, chunksize=4))
     rows = []
     for p, (tot, per) in zip(grid, results):
         per = np.array(per)
