@@ -1,0 +1,27 @@
+location,circuit,type,direction,length_km,turns
+Melbourne,Albert Park Circuit,street,clockwise,5.278,16
+Shanghai,Shanghai International Circuit,race,clockwise,5.451,16
+Suzuka,Suzuka International Racing Course,race,figure-eight,5.807,18
+Sakhir,Bahrain International Circuit,race,clockwise,5.412,15
+Jeddah,Jeddah Corniche Circuit,street,anti-clockwise,6.174,27
+Miami,Miami International Autodrome,street,anti-clockwise,5.412,19
+Montréal,Circuit Gilles Villeneuve,street,clockwise,4.361,14
+Monaco,Circuit de Monaco,street,clockwise,3.337,19
+Barcelona,Circuit de Barcelona-Catalunya,race,clockwise,4.657,14
+Spielberg,Red Bull Ring,race,clockwise,4.318,10
+Silverstone,Silverstone Circuit,race,clockwise,5.891,18
+Spa-Francorchamps,Circuit de Spa-Francorchamps,race,clockwise,7.004,20
+Budapest,Hungaroring,race,clockwise,4.381,14
+Zandvoort,Circuit Zandvoort,race,clockwise,4.259,14
+Monza,Autodromo Nazionale Monza,race,clockwise,5.793,11
+Madrid,Madring,street,clockwise,5.414,22
+Baku,Baku City Circuit,street,anti-clockwise,6.003,20
+Kuala Lumpur,Sepang International Circuit (assumed; checked against telemetry lap distance),race,clockwise,5.543,15
+Marina Bay,Marina Bay Street Circuit,street,anti-clockwise,4.940,19
+Austin,Circuit of the Americas,race,anti-clockwise,5.513,20
+Mexico City,Autodromo Hermanos Rodriguez,race,clockwise,4.304,17
+São Paulo,Autodromo Jose Carlos Pace (Interlagos),race,anti-clockwise,4.309,15
+Las Vegas,Las Vegas Strip Circuit,street,anti-clockwise,6.201,17
+Lusail,Lusail International Circuit,race,clockwise,5.419,16
+Yas Island,Yas Marina Circuit,race,anti-clockwise,5.281,16
+Imola,Autodromo Enzo e Dino Ferrari,race,anti-clockwise,4.909,19
