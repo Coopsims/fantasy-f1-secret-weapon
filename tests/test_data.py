@@ -20,7 +20,7 @@ def test_name_canonicalisation():
     assert canon_team("Visa Cash App RB") == "Racing Bulls"
     assert canon_team("Haas F1 Team") == "Haas F1 Team"
     assert historical_round(2025, "Montréal") == 10 and historical_round(2024, "Montreal") == 9
-    assert round_for_location("Yas Marina") == 24
+    assert round_for_location("Yas Marina") == 25   # Kuala Lumpur inserted at round 18
 
 
 def test_overtakes_ignore_pit_cycle_swaps():

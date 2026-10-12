@@ -143,15 +143,11 @@ def replay(res, year=2026, n_sims=4000, horizon=3, params=None, verbose=True, of
     params = replace(params or ModelParams(), dotd=official is not None)
     act = season_actuals(res, year, official)
     forecasts, acc_rows = {}, []
-    n_cal = len(RACE_CALENDAR_2026)
     for i, (rnd, t) in enumerate(zip(act["rounds"], act["t"])):
         hist = truncate(res, t)
         assert hist.empty or hist.weekends["t"].max() < t, "future data leaked into the model"
         f = WeekendForecaster(hist, params=params, year=year, verbose=False)
-        for k in range(horizon):
-            target = rnd + k
-            if target > n_cal:
-                break
+        for k, target in enumerate(act["rounds"][i:i + horizon]):    # next raced weekends (skips cancelled rounds)
             fc = f.forecast(target, n=n_sims, seed=100 + target)
             d_ev = np.stack([fc.event_points(e, include_dotd=params.dotd).mean(0) for e in ("quali", "sprint", "race")], 1)
             tot = fc.total_points(include_dotd=params.dotd)
@@ -205,8 +201,8 @@ def play_season(rep, prices, rules=None, horizon=3, discount=0.7, use_chips=True
                   chips_left=rules.chips if use_chips else ())
     log, total = [], 0.0
     for i, rnd in enumerate(act["rounds"]):
-        H = [k for k in range(horizon) if (rnd, rnd + k) in rep["forecasts"] and i + k < R]
-        pts_h = np.array([rep["forecasts"][(rnd, rnd + k)]["mean"] for k in H])
+        H = [k for k in range(horizon) if i + k < R and (rnd, act["rounds"][i + k]) in rep["forecasts"]]
+        pts_h = np.array([rep["forecasts"][(rnd, act["rounds"][i + k])]["mean"] for k in H])
         price_h = np.array([prices[i]] * len(H))                      # future prices unknown: hold flat
         disc = discount ** np.arange(len(H))
         plan = solve_strategy(pts_h, price_h, IS_DRIVER, rules, state, disc, time_limit=60, mip_rel_gap=1e-6)

@@ -45,11 +45,13 @@ GRID_2026 = {
 # ──────────────────────────────────────────────────────────────
 
 RACE_CALENDAR_2026 = [
+    # cancelled=True: on the original calendar but never run (OpenF1 is_cancelled). Round numbers
+    # are chronological; Kuala Lumpur is an unscheduled replacement race and shifts later rounds by one.
     {"round": 1, "location": "Melbourne", "name": "Australian GP", "sprint": False},
     {"round": 2, "location": "Shanghai", "name": "Chinese GP", "sprint": True},
     {"round": 3, "location": "Suzuka", "name": "Japanese GP", "sprint": False},
-    {"round": 4, "location": "Sakhir", "name": "Bahrain GP", "sprint": False},
-    {"round": 5, "location": "Jeddah", "name": "Saudi Arabian GP", "sprint": False},
+    {"round": 4, "location": "Sakhir", "name": "Bahrain GP", "sprint": False, "cancelled": True},
+    {"round": 5, "location": "Jeddah", "name": "Saudi Arabian GP", "sprint": False, "cancelled": True},
     {"round": 6, "location": "Miami", "name": "Miami GP", "sprint": True},
     {"round": 7, "location": "Montréal", "name": "Canadian GP", "sprint": True},
     {"round": 8, "location": "Monaco", "name": "Monaco GP", "sprint": False},
@@ -62,13 +64,14 @@ RACE_CALENDAR_2026 = [
     {"round": 15, "location": "Monza", "name": "Italian GP", "sprint": False},
     {"round": 16, "location": "Madrid", "name": "Spanish GP", "sprint": False},
     {"round": 17, "location": "Baku", "name": "Azerbaijan GP", "sprint": False},
-    {"round": 18, "location": "Marina Bay", "name": "Singapore GP", "sprint": True},
-    {"round": 19, "location": "Austin", "name": "US GP", "sprint": False},
-    {"round": 20, "location": "Mexico City", "name": "Mexico City GP", "sprint": False},
-    {"round": 21, "location": "São Paulo", "name": "São Paulo GP", "sprint": False},
-    {"round": 22, "location": "Las Vegas", "name": "Las Vegas GP", "sprint": False},
-    {"round": 23, "location": "Lusail", "name": "Qatar GP", "sprint": False},
-    {"round": 24, "location": "Yas Island", "name": "Abu Dhabi GP", "sprint": False},
+    {"round": 18, "location": "Kuala Lumpur", "name": "Bahrain GP (Kuala Lumpur)", "sprint": False},
+    {"round": 19, "location": "Marina Bay", "name": "Singapore GP", "sprint": True},
+    {"round": 20, "location": "Austin", "name": "US GP", "sprint": False},
+    {"round": 21, "location": "Mexico City", "name": "Mexico City GP", "sprint": False},
+    {"round": 22, "location": "São Paulo", "name": "São Paulo GP", "sprint": False},
+    {"round": 23, "location": "Las Vegas", "name": "Las Vegas GP", "sprint": False},
+    {"round": 24, "location": "Lusail", "name": "Qatar GP", "sprint": False},
+    {"round": 25, "location": "Yas Island", "name": "Abu Dhabi GP", "sprint": False},
 ]
 
 
@@ -248,6 +251,7 @@ TRACK_PROFILES = {
     "Monza":             {"stickiness": 0.90, "chaos": 1.00, "overtaking": 1.00, "stops": 1.3},
     "Madrid":            {"stickiness": 1.10, "chaos": 1.10, "overtaking": 0.90, "stops": 1.9},
     "Baku":              {"stickiness": 0.80, "chaos": 1.50, "overtaking": 1.30, "stops": 1.6},
+    "Kuala Lumpur":      {"stickiness": 0.85, "chaos": 1.20, "overtaking": 1.20, "stops": 2.2},
     "Marina Bay":        {"stickiness": 1.30, "chaos": 1.50, "overtaking": 0.80, "stops": 2.0},
     "Austin":            {"stickiness": 0.90, "chaos": 1.10, "overtaking": 1.20, "stops": 2.0},
     "Mexico City":       {"stickiness": 1.10, "chaos": 1.00, "overtaking": 0.90, "stops": 1.6},

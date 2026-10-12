@@ -81,7 +81,12 @@ def fetch_2026_results():
         with open(CACHE_FILE_2026, "r") as f:
             cached = json.load(f)
 
-    cached_keys = {m["meeting_key"] for m in cached}
+    from f1_trainer import meeting_gaps, backfill_session_drivers
+    if backfill_session_drivers(cached):
+        with open(CACHE_FILE_2026, "w") as f:
+            json.dump(cached, f)
+    # a cached meeting with gaps (failed / rate-limited fetch) is retried, not trusted
+    cached_keys = {m["meeting_key"] for m in cached if not meeting_gaps(m)}
 
     from f1_trainer import openf1_get
     from openf1_utils import openf1_client
@@ -105,6 +110,7 @@ def fetch_2026_results():
         location = meeting.get("location", "Unknown")
         sessions = openf1_get("sessions", {"meeting_key": mk})
         if not sessions:
+            print(f"  ⚠ {location}: no sessions returned (failed call?) - will retry next run")
             continue
 
         # Check if there's at least a completed Race session
@@ -121,6 +127,7 @@ def fetch_2026_results():
             "location": location,
             "meeting_key": mk,
             "meeting_name": meeting.get("meeting_name", ""),
+            "date_start": meeting.get("date_start"),
             "drivers": drivers,
             "sessions": [],
         }
@@ -144,6 +151,8 @@ def fetch_2026_results():
         time.sleep(0.1)
 
     if new_meetings:
+        replaced = {m["meeting_key"] for m in new_meetings}
+        cached = [m for m in cached if m["meeting_key"] not in replaced]
         cached.extend(new_meetings)
         with open(CACHE_FILE_2026, "w") as f:
             json.dump(cached, f)

@@ -67,7 +67,10 @@ def test_transfer_penalty_is_charged():
     pts[0, 0], pts[1, 1] = 5, 12            # driver0 good wk1, driver1 good wk2
     price = np.full((T, nd + nc), 10.0)
     rules = Rules(n_drivers=1, n_constructors=1, budget=20.0, penalty=10, free_per_round=0, max_bank=0, chips=())
-    plan = solve_strategy(pts, price, isd, rules, State(free_transfers=0, chips_left=()))
-    # boost doubles: stay on driver0 = 10 + 0 ; swap = 10 + 24 - 10 -> 24 ; best is swap
+    # start already holding driver0 + constructor 3; with prev_team=None the first pick is free and
+    # "driver1 from week 1" ties the swap plan at 24 without any penalty
+    start = State(prev_team=frozenset({0, nd}), free_transfers=0, chips_left=())
+    plan = solve_strategy(pts, price, isd, rules, start)
+    # boost doubles: stay on driver0 = 10 + 0 ; swap in wk2 = 10 + 24 - 10 = 24 ; swap in wk1 = 0 + 24 - 10 = 14
     assert plan.total == pytest.approx(5 * 2 + 12 * 2 - 10)
     assert plan.penalties[1] == 10 and plan.transfers_in[1] == 1

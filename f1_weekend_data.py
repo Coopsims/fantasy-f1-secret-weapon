@@ -211,9 +211,7 @@ def _relabel_sessions(raw_sessions):
 
 def _meeting_rows(m):
     """Convert one raw meeting dict into (session_rows, pit_rows) or None."""
-    drivers = m.get("drivers", [])
-    dmap = {d["driver_number"]: canon_driver(d.get("last_name", "")) for d in drivers}
-    tmap = {d["driver_number"]: canon_team(d.get("team_name", "Unknown")) for d in drivers}
+    meeting_drivers = m.get("drivers", [])
     labelled = _relabel_sessions(m.get("sessions", []))
 
     by_code = {}
@@ -230,6 +228,10 @@ def _meeting_rows(m):
         s = by_code.get(code)
         if s is None:
             continue
+        # each session's own line-up (the meeting-level list comes from Practice 1 and can be wrong)
+        drivers = s.get("drivers") or meeting_drivers
+        dmap = {d["driver_number"]: canon_driver(d.get("last_name", "")) for d in drivers}
+        tmap = {d["driver_number"]: canon_team(d.get("team_name", "Unknown")) for d in drivers}
         latest = _latest_positions(s.get("positions"))
         finish = {dmap[dn]: int(p) for dn, p in latest.items() if dn in dmap and dmap[dn]}
         if not finish:
@@ -274,7 +276,7 @@ def _meeting_rows(m):
 def build_from_meetings(meetings):
     """Raw OpenF1 meeting dicts -> Results."""
     seen, ordered = set(), []
-    for m in sorted(meetings, key=lambda m: (m.get("year", 0), m.get("meeting_key", 0))):
+    for m in sorted(meetings, key=lambda m: (m.get("year", 0), m.get("date_start") or "", m.get("meeting_key", 0))):
         key = m.get("meeting_key")
         if key in seen:
             continue
@@ -293,6 +295,8 @@ def build_from_meetings(meetings):
         year = m["year"]
         order_in_year[year] = order_in_year.get(year, 0) + 1
         rnd = historical_round(year, m["location"]) or order_in_year[year]
+        if any(w["year"] == year and w["round"] == rnd for w in wk_rows):    # never merge two weekends
+            rnd = max(w["round"] for w in wk_rows if w["year"] == year) + 1
         loc = canon_location(m["location"])
         is_sprint = any(r["session"] in ("S", "SQ") for r in rows)
         wk_rows.append({"year": year, "round": rnd, "order": order_in_year[year],

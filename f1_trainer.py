@@ -67,6 +67,9 @@ def get_session_data(session, driver_map):
     data = {
         "session_key": sk,
         "session_type": stype,
+        # the line-up of THIS session: Practice 1 (used for the meeting-level list) often runs
+        # reserve drivers, which hides the real race drivers / puts them in the wrong car
+        "drivers": openf1_get("drivers", {"session_key": sk}),
         "positions": openf1_get("position", {"session_key": sk}),
     }
 
@@ -82,6 +85,57 @@ def get_session_data(session, driver_map):
     return data
 
 
+def meeting_gaps(m):
+    """Reasons a cached meeting is incomplete (failed / rate-limited fetches), [] if fine.
+    Pit stops are only expected for the main race (the sprint has none)."""
+    if "testing" in (m.get("meeting_name") or "").lower():
+        return []
+    sessions = m.get("sessions") or []
+    if not sessions:
+        return ["no sessions"]
+    gaps = []
+    for s in sessions:
+        if not s.get("drivers"):
+            gaps.append(f"{s['session_type']} {s['session_key']}: no drivers")
+        if not s.get("positions"):
+            gaps.append(f"{s['session_type']} {s['session_key']}: no positions")
+    races = sorted((s for s in sessions if s["session_type"] == "Race"),
+                   key=lambda s: s["session_key"])
+    for i, s in enumerate(races):
+        need = ["laps", "stints"] + (["pit"] if i == len(races) - 1 else [])
+        gaps += [f"Race {s['session_key']}: no {k}" for k in need if not s.get(k)]
+    return gaps
+
+
+def backfill_session_drivers(meetings):
+    """Caches written before per-session driver lists existed: fetch them (one call per session)."""
+    n = 0
+    for m in meetings:
+        for s in m.get("sessions") or []:
+            if not s.get("drivers"):
+                s["drivers"] = openf1_get("drivers", {"session_key": s["session_key"]}) or []
+                n += 1
+                time.sleep(0.05)
+    return n
+
+
+def _fetch_meeting(meeting, workers):
+    mk = meeting["meeting_key"]
+    sessions = openf1_get("sessions", {"meeting_key": mk}) or []
+    drivers = openf1_get("drivers", {"session_key": sessions[0]["session_key"]}) if sessions else []
+    driver_map = {d["driver_number"]: d.get("last_name", "") for d in drivers}
+    data = {"year": meeting.get("year"), "location": meeting.get("location", "Unknown"),
+            "meeting_key": mk, "meeting_name": meeting.get("meeting_name", ""),
+            "date_start": meeting.get("date_start"), "drivers": drivers, "sessions": []}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(get_session_data, s, driver_map): s for s in sessions}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                data["sessions"].append(result)
+    return data
+
+
 def collect_data(years=None, output_file="raw_historical_data.json"):
     """Collect raw race data from OpenF1 for given years."""
     if years is None:
@@ -93,7 +147,13 @@ def collect_data(years=None, output_file="raw_historical_data.json"):
     else:
         all_data = []
 
-    processed_keys = {m["meeting_key"] for m in all_data}
+    n_bf = backfill_session_drivers(all_data)
+    if n_bf:
+        print(f"  Backfilled per-session driver lists for {n_bf} cached sessions")
+        with open(output_file, "w") as f:
+            json.dump(all_data, f)
+    # meetings with gaps (failed / rate-limited fetches) are retried, not trusted
+    processed_keys = {m["meeting_key"] for m in all_data if not meeting_gaps(m)}
 
     openf1_client.check_refresh()
     is_paid = openf1_client.token is not None
@@ -113,32 +173,13 @@ def collect_data(years=None, output_file="raw_historical_data.json"):
                 continue
 
             print(f"    [{i+1}/{len(meetings)}] {location} (key={mk})")
-
-            sessions = openf1_get("sessions", {"meeting_key": mk})
-            drivers = []
-            if sessions:
-                drivers = openf1_get("drivers", {"session_key": sessions[0]["session_key"]})
-
-            driver_map = {d["driver_number"]: d.get("last_name", "") for d in drivers}
-
-            meeting_data = {
-                "year": year,
-                "location": location,
-                "meeting_key": mk,
-                "meeting_name": meeting.get("meeting_name", ""),
-                "drivers": drivers,
-                "sessions": [],
-            }
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = {pool.submit(get_session_data, s, driver_map): s for s in sessions}
-                for future in concurrent.futures.as_completed(futures):
-                    result = future.result()
-                    if result:
-                        meeting_data["sessions"].append(result)
-
-            all_data.append(meeting_data)
-            processed_keys.add(mk)
+            meeting_data = _fetch_meeting({**meeting, "year": year}, workers)
+            gaps = meeting_gaps(meeting_data)
+            if gaps:
+                print(f"      ⚠ incomplete after fetch (will retry next run): {gaps}")
+            all_data = [m for m in all_data if m["meeting_key"] != mk] + [meeting_data]
+            if not gaps:
+                processed_keys.add(mk)
 
             with open(output_file, "w") as f:
                 json.dump(all_data, f)
