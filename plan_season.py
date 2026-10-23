@@ -50,18 +50,26 @@ def forecasts(rounds, specs, c_sim, refresh=False):
     return full_pts[[allr.index(r) for r in rounds]]
 
 
+def practice_fingerprint(pdata):
+    """What practice is known: laps per pre-lock practice session of every weekend (changes after each FP session)."""
+    return sorted((m["meeting_key"], s["session_name"], len(s["laps"])) for m in pdata for s in m["sessions"])
+
+
 def _forecasts_all(rounds, specs, c_sim, refresh=False):
     import mlflow_experiments as X, f1_practice as P, openf1_cache as C
     from experiments import zoo, s26
     res, truth, ctruth = X.get_data()
+    full = C.load_all(only_complete=False)              # includes a weekend in progress (its practice, before the lock)
+    pdata = C.to_practice(full)
+    # The practice of the weekend in progress is not in `res` (no results yet), so it must be in the key itself,
+    # otherwise a forecast cached before FP1 would be reused after it.
     key = hashlib.sha1(json.dumps([X.data_fingerprint(res), specs, c_sim, rounds,
-                                   os.path.getmtime("fantasy_f1_official_points.csv")], default=str).encode()).hexdigest()[:16]
+                                   os.path.getmtime("fantasy_f1_official_points.csv"), practice_fingerprint(pdata)],
+                                  default=str).encode()).hexdigest()[:16]
     os.makedirs(os.path.join("results", "cache"), exist_ok=True)
     path = os.path.join("results", "cache", f"forecast_{key}.pkl")
     if os.path.exists(path) and not refresh:
         return pd.read_pickle(path)
-    full = C.load_all(only_complete=False)              # includes a weekend in progress (its practice, before the lock)
-    pdata = C.to_practice(full)
     tracks = zoo.track_tables()
     panel_pkl = os.path.join("results", "cache", f"panel_{X.data_fingerprint(res)}.pkl")
     if not os.path.exists(panel_pkl):

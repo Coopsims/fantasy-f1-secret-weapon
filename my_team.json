@@ -1,0 +1,13 @@
+{
+  "as_of": "2026-10-23, US GP week (from the app: Otto-Mobile)",
+  "team": ["Hamilton", "Antonelli", "Colapinto", "Lawson", "Bearman", "Ferrari", "Racing Bulls"],
+  "boost": "Antonelli",
+  "bank": 2.4,
+  "free_transfers": 3,
+  "chips_left": ["wildcard"],
+  "chips_used": ["limitless", "final_fix", "autopilot", "no_negative", "3x_booster"],
+  "prices_seen": {
+    "Hamilton": 24.4, "Antonelli": 27.1, "Colapinto": 8.8, "Lawson": 9.9, "Bearman": 6.4,
+    "Ferrari": 28.2, "Racing Bulls": 16.5
+  }
+}
