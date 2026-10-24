@@ -185,3 +185,18 @@ Both use `f1_planner.py`: forecasts for every remaining race from the model in `
 (tree models on the feature panel + the weekend simulator + recent official form, blended), the game's current
 prices projected with its price rule, and the exact solver. Chips: wildcard, 3x booster, no negative, limitless
 (Final Fix and Autopilot are not modelled). Options: `--keep`, `--avoid`, `--rounds`, `--discount`, `--flat-prices`.
+
+## Your team, each race weekend
+
+`my_team.json` holds your team as the app shows it (drivers, constructors, cost cap, free transfers, chips left).
+`my_weekend.py` fetches the latest data and runs the planner with it:
+
+```bash
+python my_weekend.py               # after FP1 / FP2 / FP3: pulls this weekend's practice, plans the next race
+python my_weekend.py --season      # rest of the season with the chips you have left
+python my_weekend.py --after-race  # after the Grand Prix: official points, new prices, results
+```
+
+The team locks at Qualifying, so the last useful run is after FP3. After you make transfers in the app, update
+`my_team.json`. Practice from a weekend in progress now changes the forecast cache key, so each FP session is picked up
+without `--refresh`.
