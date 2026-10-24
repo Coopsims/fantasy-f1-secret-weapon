@@ -68,6 +68,7 @@ class Plan:
     status: str = ""
     optimal: bool = False
     boosts3: list = None              # x3 driver per round (3x_booster weeks; None otherwise) - the x2 boost is another driver
+    bound: float = None               # proven upper bound on the objective (= objective when optimal)
 
 
 def _chip_pts(vals, chip):
@@ -356,8 +357,10 @@ def solve_strategy(pts, price, is_driver, rules=None, state=None, discount=None,
                 extra = sum(nn_gain[t][e] - max(-pts[t][e], 0.0) for e in teams[t]) + nn_gain[t][boosts[t]] - max(-pts[t][boosts[t]], 0.0)
                 per[t] += float(extra)
                 total += float(extra) * (1.0 if discount is None else discount[t])
+    dual = getattr(res, "mip_dual_bound", None)
     return Plan(teams, boosts, chips, trs, pen, per, total, objective=-res.fun,
-                status=res.message, optimal=bool(res.status == 0), boosts3=boosts3)
+                status=res.message, optimal=bool(res.status == 0), boosts3=boosts3,
+                bound=-res.fun if res.status == 0 or dual is None or not np.isfinite(dual) else -float(dual))
 
 
 # ──────────────────────────────────────────────────────────────
