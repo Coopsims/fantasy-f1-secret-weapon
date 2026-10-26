@@ -197,6 +197,9 @@ python my_weekend.py --season      # rest of the season with the chips you have 
 python my_weekend.py --after-race  # after the Grand Prix: official points, new prices, results
 ```
 
+After the race, `python score_team.py` shows what the team in `my_team.json` scored on the game's official points
+(before you update the file: the team you had before your transfers); `--team ... --boost X` scores any other line-up.
+
 The team locks at Qualifying, so the last useful run is after FP3. After you make transfers in the app, update
 `my_team.json`. Practice from a weekend in progress now changes the forecast cache key, so each FP session is picked up
 without `--refresh`.
