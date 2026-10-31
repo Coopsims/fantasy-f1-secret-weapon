@@ -96,11 +96,13 @@ def main(argv=None):
     if a.after_race:
         run([py, "fetch_fantasy_feed.py"], a.dry_run)
         run([py, "fetch_openf1_full.py", "--years", "2026"], a.dry_run)
+        run([py, "rebuild_raw_from_full.py"], a.dry_run)     # the planner reads finished weekends from these files
         print("\nNow update my_team.json with what the app shows (team, cost cap, free transfers, chips left, "
               "prices_seen) and run `python my_weekend.py --no-fetch` for next week.")
         return
     if not a.no_fetch:
         run([py, "fetch_openf1_full.py", "--years", "2026"], a.dry_run)     # this weekend's practice so far
+        run([py, "rebuild_raw_from_full.py"], a.dry_run)     # last weekend's results, or the planner plans for it again
     for w in price_warnings(cfg):
         print(f"  price check: {w} - if the app is newer, run `python fetch_fantasy_feed.py` "
               f"(or pass -- --price NAME=VALUE)")

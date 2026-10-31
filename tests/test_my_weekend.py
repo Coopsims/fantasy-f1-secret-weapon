@@ -42,7 +42,11 @@ def test_bad_team_and_unmodelled_chips(tmp_path):
 def test_dry_run_prints_fetch_then_plan(capsys):
     W.main(["--dry-run"])
     out = capsys.readouterr().out
-    assert out.index("fetch_openf1_full.py --years 2026") < out.index("plan_next_race.py --team")
+    assert (out.index("fetch_openf1_full.py --years 2026") < out.index("rebuild_raw_from_full.py")
+            < out.index("plan_next_race.py --team"))
+    W.main(["--dry-run", "--after-race"])
+    out = capsys.readouterr().out
+    assert out.index("fetch_openf1_full.py") < out.index("rebuild_raw_from_full.py") and "plan_next_race" not in out
     W.main(["--dry-run", "--no-fetch", "--season", "--", "--avoid", "Hamilton"])
     out = capsys.readouterr().out
     assert "fetch_openf1_full" not in out and "plan_season.py" in out and out.strip().endswith("--avoid Hamilton")
