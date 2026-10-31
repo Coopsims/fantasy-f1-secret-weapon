@@ -197,6 +197,34 @@ python my_weekend.py --season      # rest of the season with the chips you have 
 python my_weekend.py --after-race  # after the Grand Prix: official points, new prices, results
 ```
 
+After the race, `python score_team.py` shows what the team in `my_team.json` scored on the game's official points
+(before you update the file: the team you had before your transfers); `--team ... --boost X` scores any other line-up.
+
 The team locks at Qualifying, so the last useful run is after FP3. After you make transfers in the app, update
 `my_team.json`. Practice from a weekend in progress now changes the forecast cache key, so each FP session is picked up
 without `--refresh`.
+
+## The best possible season so far (hindsight)
+
+```bash
+python fetch_fantasy_feed.py     # latest official points and prices
+python season_optimum.py         # race-by-race optimal decisions -> results/season_2026_hindsight_optimum.csv
+```
+
+Exact (each plan proven optimal) on the game's official points and prices from $100m at the first race, with Wildcard,
+x3 Boost, No Negative and Limitless (every week tried, in parallel). Autopilot cannot add anything with hindsight;
+Final Fix needs race-only points the feed CSVs do not hold, so it is not included. `--upto N` stops at gameday N.
+
+
+## How the model would have played the season (vs the best players)
+
+```bash
+python season_optimum.py                       # the ceiling first (optional; 30-60 min, Limitless in every week)
+python season_model_test.py --top 4994         # walk-forward play with every chip the planner plays
+```
+
+Replays 2026 the way the planner plays it - only earlier data at each gameday, 3 races ahead, exact solver, one week
+played at a time - on official points and prices, now with Limitless and Autopilot as well as Wildcard, x3 Boost and No
+Negative (Final Fix is not played). It needs the walk-forward forecasts cached by `experiments/s26_season_replay.py`
+(`--forecasts PATH` if they are in another checkout). Prints each chip rule's season total against `--top` and the
+optimum, and the deployed planner's race-by-race play.
